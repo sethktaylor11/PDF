@@ -5,6 +5,7 @@
 #include "render_pass.h"
 #include "config.h"
 #include "gui.h"
+#include "spring_system.h"
 
 #include <algorithm>
 #include <fstream>
@@ -91,18 +92,89 @@ GLFWwindow* init_glefw()
     return ret;
 }
 
+void CreateBox(std::vector<glm::vec4>& particle_pos,
+        std::vector<bool>& fixed_points)
+{
+    particle_pos.clear();
+    fixed_points.clear();
+
+    float length = 8.0;
+    float width = 1.0;
+    float height = 1.0;
+    float inc = 0.25;
+
+    for (float i = -length/2; i <= length/2+inc/2; i+=inc) {
+        for (float j = 3; j <= 3+(height+inc/2); j+=inc) {
+	    for (float k = -width/2; k <= width/2+inc/2; k+=inc) {
+		particle_pos.push_back(glm::vec4(i,j,k,1.0));
+		if(i < -length/2 + inc/2) {
+		    fixed_points.push_back(true);
+		} else {
+		    fixed_points.push_back(false);
+		}
+	    }
+	}
+    }
+}
+
+void CreateBlock(std::vector<glm::vec4>& obj_vertices,
+        std::vector<glm::uvec3>& obj_faces)
+{
+    obj_vertices.clear();
+    obj_faces.clear();
+    float l = .25;
+    for(float i = -l/2; i <= l; i+=l) {
+        for(float j = -l/2; j <= l; j+=l) {
+            for(float k = -l/2; k <= l; k+=l) {
+                obj_vertices.push_back(glm::vec4(i,j,k, 1.0f));
+            }
+        }
+    }
+
+    // Face 1
+    obj_faces.push_back(glm::uvec3(0, 1, 3)); 
+    obj_faces.push_back(glm::uvec3(0, 3, 2)); 
+    // Face 2                             
+    obj_faces.push_back(glm::uvec3(0, 4, 5)); 
+    obj_faces.push_back(glm::uvec3(0, 5, 1)); 
+    // Face 3                             
+    obj_faces.push_back(glm::uvec3(0, 2, 6)); 
+    obj_faces.push_back(glm::uvec3(0, 6, 4)); 
+    // Face 4                           
+    obj_faces.push_back(glm::uvec3(1, 5, 7));
+    obj_faces.push_back(glm::uvec3(1, 7, 3)); 
+    // Face 5                           
+    obj_faces.push_back(glm::uvec3(2, 3, 7)); 
+    obj_faces.push_back(glm::uvec3(2, 7, 6)); 
+    // Face 6                           
+    obj_faces.push_back(glm::uvec3(4, 6, 7)); 
+    obj_faces.push_back(glm::uvec3(4, 7, 5)); 
+}
+
 int main(int argc, char* argv[])
 {
-    bool collisionDetection = true;
-    char* v = "-c";
-    if(argc > 1 && strncmp(argv[1], v, 5) == 0) {
-        collisionDetection = false;
-    }
+    bool collisionDetection = false;
     GLFWwindow *window = init_glefw();
     GUI gui(window, collisionDetection);
+
+    // Floor
+
     std::vector<glm::vec4> floor_vertices;
     std::vector<glm::uvec3> floor_faces;
     create_floor(floor_vertices, floor_faces);
+
+    // Box
+
+    std::vector<glm::vec4> particles;
+    std::vector<bool> fixed;
+    CreateBox(particles,fixed);
+    SpringSystem* ss = new SpringSystem(particles,fixed);
+
+    // Block
+
+    std::vector<glm::vec4> block_vertices;
+    std::vector<glm::uvec3> block_faces;
+    CreateBlock(block_vertices, block_faces);
 
     glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
     MatrixPointers mats; // Define MatrixPointers here for lambda to capture
@@ -131,8 +203,8 @@ int main(int argc, char* argv[])
     auto int_binder = [](int loc, const void* data) {
         glUniform1iv(loc, 1, (const GLint*)data);
     };
-    auto vertex_positions_binder = [&gui](int loc, const void* data) {
-        glUniform4fv(loc, gui.particles.size(), (const GLfloat*)data);
+    auto vertex_positions_binder = [&particles](int loc, const void* data) {
+        glUniform4fv(loc, particles.size(), (const GLfloat*)data);
     };
 
     /*
@@ -166,13 +238,8 @@ int main(int argc, char* argv[])
             return &non_transparet;
     };
 
-    /*
-    auto block_delta_data = [&gui]() -> const void* {
-        return &gui.block_delta_var[0];
-    };
-    */
-    auto vertex_positions_data = [&gui]() -> const void* {
-        return gui.particles.data();
+    auto block_delta_data = [&particles]() -> const void* {
+        return particles.data();
     };
 
     // FIXME: add more lambdas for data_source if you want to use RenderPass.
@@ -185,8 +252,7 @@ int main(int argc, char* argv[])
     ShaderUniform std_proj = { "projection", matrix_binder, std_proj_data };
     ShaderUniform std_light = { "light_position", vector_binder, std_light_data };
     ShaderUniform object_alpha = { "alpha", float_binder, alpha_data };
-    //ShaderUniform block_delta = { "block_delta", vector_binder, block_delta_data };
-    ShaderUniform vertex_positions = { "vertex_positions", vertex_positions_binder, vertex_positions_data };
+    ShaderUniform block_delta = { "block_delta", vertex_positions_binder, block_delta_data };
     // FIXME: define more ShaderUniforms for RenderPass if you want to use it.
     //        Otherwise, do whatever you like here
 
@@ -201,10 +267,9 @@ int main(int argc, char* argv[])
             { "fragment_color" }
             );
 
-    /*
     RenderDataInput block_pass_input;
-    block_pass_input.assign(0, "vertex_position", gui.block_vertices.data(),gui.block_vertices.size(), 4, GL_FLOAT);
-    block_pass_input.assignIndex(gui.block_faces.data(), gui.block_faces.size(), 3);
+    block_pass_input.assign(0, "vertex_position", block_vertices.data(), block_vertices.size(), 4, GL_FLOAT);
+    block_pass_input.assignIndex(block_faces.data(), block_faces.size(), 3);
     RenderPass block_pass(-1, block_pass_input,
             { block_vertex_shader, block_geometry_shader, block_fragment_shader},
             { std_model, std_view, std_proj,
@@ -212,7 +277,6 @@ int main(int argc, char* argv[])
             block_delta },
             { "fragment_color" }
             );
-    */
 
     float aspect = 0.0f;
 
@@ -258,24 +322,15 @@ int main(int argc, char* argv[])
                     floor_faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
 
-        /*
-        block_pass.setup();
-        CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
-                    gui.block_faces.size() * 3,
-                    GL_UNSIGNED_INT, 0));
-        */
-
-        std::vector<glm::vec4> particles2 = gui.spring_system.getNewPositions();
-        for(int i = 0; i < particles2.size(); ++i) {
-            gui.particles[i] = particles2[i];
+        std::vector<glm::vec4> particles2 = ss->getNewPositions();
+        for(uint i = 0; i < particles2.size(); ++i) {
+            particles[i] = particles2[i];
         }
 
-        /*
-        cloth_pass.setup();
-        CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
-                    gui.faces.size() * 3,
-                    GL_UNSIGNED_INT, 0));
-        */
+        block_pass.setup();
+        CHECK_GL_ERROR(glDrawElementsInstanced(GL_TRIANGLES,
+                    block_faces.size() * 3,
+                    GL_UNSIGNED_INT, 0, particles.size()));
 
         // Poll and swap.
         glfwPollEvents();

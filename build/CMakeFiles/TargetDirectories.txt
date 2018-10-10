@@ -1,7 +1,0 @@
-/u/seth11/research/pdf/build/CMakeFiles/edit_cache.dir
-/u/seth11/research/pdf/build/CMakeFiles/rebuild_cache.dir
-/u/seth11/research/pdf/build/CMakeFiles/pmdreader.dir
-/u/seth11/research/pdf/build/CMakeFiles/utgraphicsutil.dir
-/u/seth11/research/pdf/build/src/CMakeFiles/rebuild_cache.dir
-/u/seth11/research/pdf/build/src/CMakeFiles/edit_cache.dir
-/u/seth11/research/pdf/build/src/CMakeFiles/pdf.dir
