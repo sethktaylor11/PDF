@@ -5,18 +5,30 @@
 SpringSystem::SpringSystem(
         std::vector<glm::vec4> particles,
         std::vector<bool> fixed
-        ) : particles(particles), fixed(fixed), init_particles(particles),
+        ) : particles(particles), fixed(fixed),
+    init_vecs(particles.size(), std::vector<glm::vec4>()),
+    init_lengths(particles.size(), std::vector<float>()),
+    init_dirs(particles.size(), std::vector<glm::vec4>()),
     neighborhoods(particles.size(), std::vector<int>()),
     weights(particles.size(), std::vector<float>()),
     velocities(particles.size(), glm::vec4(0)), forces(particles.size(), glm::vec4(0))
 {
     for (uint i = 0; i < particles.size()-1; i++) {
+        glm::vec4 pos = particles[i];
         for (uint j = i+1; j < particles.size(); j++) {
-            float length = glm::length(particles[j] - particles[i]);
+            glm::vec4 vec = particles[j] - pos;
+            float length = glm::length(vec);
             if (length < delta) {
                 neighborhoods[i].push_back(j);
                 neighborhoods[j].push_back(i);
-                float weight = delta/length;
+                init_vecs[i].push_back(vec);
+                init_vecs[j].push_back(-vec);
+                init_lengths[i].push_back(length);
+                init_lengths[j].push_back(length);
+                glm::vec4 dir = vec / length;
+                init_dirs[i].push_back(dir);
+                init_dirs[j].push_back(-dir);
+                float weight = delta / length;
                 weights[i].push_back(weight);
                 weights[j].push_back(weight);
             }
@@ -27,7 +39,6 @@ SpringSystem::SpringSystem(
 std::vector<glm::vec4> SpringSystem::getNewPositions() {
     // midway velocity
     for (uint i = 0; i < particles.size(); i++) {
-        //std::cout << glm::to_string(forces[i]) << std::endl;
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/2.0f;
     }
@@ -47,49 +58,91 @@ std::vector<glm::vec4> SpringSystem::getNewPositions() {
 }
 
 void SpringSystem::calculateForces() {
+    // reset forces
     forces = std::vector<glm::vec4>(particles.size(), glm::vec4(0));
 
-    for (uint i = 0; i < particles.size(); i++) { 
+    // compute relevant values from deformed positions
+    std::vector<std::vector<glm::vec4>> vecs(particles.size());
+    std::vector<std::vector<float>> lengths(particles.size());
+    std::vector<std::vector<glm::vec4>> dirs(particles.size());
+    std::vector<std::vector<float>> stretches(particles.size());
+    std::vector<std::vector<float>> extensions(particles.size());
+
+    for (uint i = 0; i < particles.size(); i++) {
         int p1 = i;
+        glm::vec4 pos = particles[p1];
         for (uint j = 0; j < neighborhoods[i].size(); j++) {
             int p2 = neighborhoods[i][j];
+            if (p2 < p1) continue;
+            // Vector
+            glm::vec4 vec = particles[p2] - pos;
+            vecs[p1].push_back(vec);
+            vecs[p2].push_back(-vec);
+            // Length
+            float length = glm::length(vec);
+            lengths[p1].push_back(length);
+            lengths[p2].push_back(length);
+            // Direction
+            glm::vec4 dir = vec / length;
+            dirs[p1].push_back(dir);
+            dirs[p2].push_back(-dir);
+            float init_length = init_lengths[i][j];
+            // Stretch
+            float stretch = length / init_length - 1;
+            stretches[p1].push_back(stretch);
+            stretches[p2].push_back(stretch);
+            // Extension
+            float extension = length - init_length;
+            extensions[p1].push_back(extension);
+            extensions[p2].push_back(extension);
+        }
+    }
+
+    // compute dilatations
+    std::vector<float> thetas(particles.size());
+
+    for (uint i = 0; i < particles.size(); i++) {
+        float sum = 0.0f;
+        for (uint j = 0; j < neighborhoods[i].size(); j++) {
+            int k = neighborhoods[i][j];
             float weight = weights[i][j];
-            glm::vec4 Tp2p1 = calculateForceAOnB(p2,p1,weight);
-            glm::vec4 Tp1p2 = calculateForceAOnB(p1,p2,weight);
+            glm::vec4 init_vec = init_vecs[i][j];
+            glm::vec4 dir = dirs[i][j];
+            float stretch = stretches[i][j];
+            sum += weight * stretch * glm::dot(dir,init_vec) * volume; //volume[k];
+        }
+        float theta = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * sum;
+        thetas.push_back(theta);
+    }
+
+    //compute forces
+    for (uint i = 0; i < particles.size(); i++) { 
+        int p1 = i;
+        float theta1 = thetas[p1];
+        for (uint j = 0; j < neighborhoods[i].size(); j++) {
+            int p2 = neighborhoods[i][j];
+            if (p2 < p1) continue;
+            float weight = weights[i][j];
+            glm::vec4 dir = dirs[i][j];
+            glm::vec4 init_dir = init_dirs[i][j];
+            float dot = glm::dot(dir,init_dir);
+            // Tp2p1
+            float A_dil = 4.0f * weight * a * dot * theta1;
+            float extension = extensions[i][j];
+            float A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta1);
+            float A = A_dil + A_dev;
+            glm::vec4 Tp2p1 = 0.5f * A * dir;
+            // Tp1p2
+            float theta2 = thetas[p2];
+            A_dil = 4.0f * weight * a * dot * theta2;
+            A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta2);
+            A = A_dil + A_dev;
+            glm::vec4 Tp1p2 = 0.5f * A * -dir;
             forces[p1] += Tp2p1 * volume; // volume[p2];
+            forces[p1] -= Tp1p2 * volume; // volume[p2];
             forces[p2] += Tp1p2 * volume; // volume[p1];
+            forces[p2] -= Tp2p1 * volume; // volume[p1];
         }
         forces[p1] += glm::vec4(0,-1,0,0);
     }
-}
-
-glm::vec4 SpringSystem::calculateForceAOnB(int j, int i, float weight) {
-    glm::vec4 vec = particles[j] - particles[i];
-    glm::vec4 init_vec = init_particles[j] - init_particles[i];
-    float length = glm::length(vec);
-    float init_length = glm::length(init_vec);
-    glm::vec4 dir = vec / length;
-    glm::vec4 init_dir = init_vec / init_length;
-    float theta = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4));
-    float A_dil = 4.0f * weight * a * glm::dot(dir,init_dir) * theta;
-    float extension = length - init_length;
-    float A_dev = 4.0f * weight * b * (extension - delta / 4.0f * glm::dot(dir,init_dir) * theta);
-    float A = A_dil + A_dev;
-    return 0.5f * A * dir;
-}
-
-float SpringSystem::calculateDilatation(int i) {
-    float sum = 0.0f;
-    for (uint j = 0; j < neighborhoods[i].size(); j++) {
-        int k = neighborhoods[i][j];
-        float weight = weights[i][j];
-        glm::vec4 vec = particles[k] - particles[i];
-        glm::vec4 init_vec = init_particles[k] - init_particles[i];
-        float length = glm::length(vec);
-        float init_length = glm::length(init_vec);
-        glm::vec4 dir = vec / length;
-        float stretch = length / init_length - 1;
-        sum += weight * stretch * glm::dot(dir,init_vec) * volume; //volume[k];
-    }
-    return 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * sum;
 }

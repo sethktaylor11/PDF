@@ -17,18 +17,18 @@ class SpringSystem {
         std::vector<bool> fixed;
     private:
         void calculateForces();
-        glm::vec4 calculateForceAOnB(int a, int b, float weight);
-        float calculateDilatation(int i);
         std::vector<std::vector<int>> neighborhoods;
-        std::vector<glm::vec4> init_particles;
+        std::vector<std::vector<glm::vec4>> init_vecs;
+        std::vector<std::vector<float>> init_lengths;
+        std::vector<std::vector<glm::vec4>> init_dirs;
         std::vector<std::vector<float>> weights;
         std::vector<glm::vec4> velocities;
         std::vector<glm::vec4> forces;
         TicTocTimer t = tic();
         float time = 0.015f;
         float delta = 0.6f;
-        float a = 0.1f;
-        float b = 0.1f;
+        float a = 1000.0f;
+        float b = 1000.0f;
         float volume = 0.015625f;
 };
 

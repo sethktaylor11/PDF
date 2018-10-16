@@ -104,7 +104,7 @@ void CreateBox(std::vector<glm::vec4>& particle_pos,
     float inc = 0.25;
 
     for (float i = -length/2; i <= length/2+inc/2; i+=inc) {
-        for (float j = 3; j <= 3+(height+inc/2); j+=inc) {
+        for (float j = 8; j <= 8+(height+inc/2); j+=inc) {
 	    for (float k = -width/2; k <= width/2+inc/2; k+=inc) {
 		particle_pos.push_back(glm::vec4(i,j,k,1.0));
 		if(i < -length/2 + inc/2) {
