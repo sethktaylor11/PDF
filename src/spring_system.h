@@ -18,6 +18,7 @@ class SpringSystem {
     private:
         void calculateForces();
         std::vector<std::vector<int>> neighborhoods;
+        std::vector<std::vector<bool>> broken;
         std::vector<std::vector<glm::vec4>> init_vecs;
         std::vector<std::vector<float>> init_lengths;
         std::vector<std::vector<glm::vec4>> init_dirs;

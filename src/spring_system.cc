@@ -10,6 +10,7 @@ SpringSystem::SpringSystem(
     init_lengths(particles.size(), std::vector<float>()),
     init_dirs(particles.size(), std::vector<glm::vec4>()),
     neighborhoods(particles.size(), std::vector<int>()),
+    broken(particles.size(), std::vector<bool>()),
     weights(particles.size(), std::vector<float>()),
     velocities(particles.size(), glm::vec4(0)), forces(particles.size(), glm::vec4(0))
 {
@@ -33,6 +34,7 @@ SpringSystem::SpringSystem(
                 weights[j].push_back(weight);
             }
         }
+        broken[i].resize(neighborhoods[i].size(),false);
     }
 }
 
@@ -65,36 +67,34 @@ void SpringSystem::calculateForces() {
     std::vector<std::vector<glm::vec4>> vecs(particles.size());
     std::vector<std::vector<float>> lengths(particles.size());
     std::vector<std::vector<glm::vec4>> dirs(particles.size());
-    std::vector<std::vector<float>> stretches(particles.size());
     std::vector<std::vector<float>> extensions(particles.size());
+    std::vector<std::vector<float>> stretches(particles.size());
 
     for (uint i = 0; i < particles.size(); i++) {
-        int p1 = i;
-        glm::vec4 pos = particles[p1];
+        vecs[i].resize(neighborhoods[i].size());
+        lengths[i].resize(neighborhoods[i].size());
+        dirs[i].resize(neighborhoods[i].size());
+        extensions[i].resize(neighborhoods[i].size());
+        stretches[i].resize(neighborhoods[i].size());
+        glm::vec4 pos = particles[i];
         for (uint j = 0; j < neighborhoods[i].size(); j++) {
+            if (broken[i][j]) continue;
             int p2 = neighborhoods[i][j];
-            if (p2 < p1) continue;
-            // Vector
             glm::vec4 vec = particles[p2] - pos;
-            vecs[p1].push_back(vec);
-            vecs[p2].push_back(-vec);
-            // Length
             float length = glm::length(vec);
-            lengths[p1].push_back(length);
-            lengths[p2].push_back(length);
-            // Direction
             glm::vec4 dir = vec / length;
-            dirs[p1].push_back(dir);
-            dirs[p2].push_back(-dir);
             float init_length = init_lengths[i][j];
-            // Stretch
-            float stretch = length / init_length - 1;
-            stretches[p1].push_back(stretch);
-            stretches[p2].push_back(stretch);
-            // Extension
             float extension = length - init_length;
-            extensions[p1].push_back(extension);
-            extensions[p2].push_back(extension);
+            float stretch = extension / init_length;
+            if (stretch >= 1) {
+                broken[i][j] = true;
+                continue;
+            }
+            vecs[i][j] = vec;
+            lengths[i][j] = length;
+            dirs[i][j] = dir;
+            extensions[i][j] = extension;
+            stretches[i][j] = stretch;
         }
     }
 
@@ -104,6 +104,7 @@ void SpringSystem::calculateForces() {
     for (uint i = 0; i < particles.size(); i++) {
         float sum = 0.0f;
         for (uint j = 0; j < neighborhoods[i].size(); j++) {
+            if (broken[i][j]) continue;
             int k = neighborhoods[i][j];
             float weight = weights[i][j];
             glm::vec4 init_vec = init_vecs[i][j];
@@ -120,6 +121,7 @@ void SpringSystem::calculateForces() {
         int p1 = i;
         float theta1 = thetas[p1];
         for (uint j = 0; j < neighborhoods[i].size(); j++) {
+            if (broken[i][j]) continue;
             int p2 = neighborhoods[i][j];
             if (p2 < p1) continue;
             float weight = weights[i][j];
