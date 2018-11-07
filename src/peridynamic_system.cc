@@ -1,19 +1,38 @@
-#include "spring_system.h"
+#include "peridynamic_system.h"
 #include <iostream>
 #include <glm/gtx/string_cast.hpp>
 
-SpringSystem::SpringSystem(
-        std::vector<glm::vec4> particles,
-        std::vector<bool> fixed
-        ) : particles(particles), fixed(fixed),
-    init_vecs(particles.size(), std::vector<glm::vec4>()),
-    init_lengths(particles.size(), std::vector<float>()),
-    init_dirs(particles.size(), std::vector<glm::vec4>()),
-    neighborhoods(particles.size(), std::vector<int>()),
-    broken(particles.size(), std::vector<bool>()),
-    weights(particles.size(), std::vector<float>()),
-    velocities(particles.size(), glm::vec4(0)), forces(particles.size(), glm::vec4(0))
+using namespace std;
+
+PeridynamicSystem::PeridynamicSystem(
+        vector<glm::vec4> nodes,
+        vector<bool> fixedNodes,
+        vector<glm::uvec4> tets
+        ) : nodes(nodes), fixed(tets.size(), false),
+    tetNeighborhoods(nodes.size(), vector<int>()),
+    particles(tets.size(), glm::vec4(0)),
+    init_vecs(tets.size(), vector<glm::vec4>()),
+    init_lengths(tets.size(), vector<float>()),
+    init_dirs(tets.size(), vector<glm::vec4>()),
+    neighborhoods(tets.size(), vector<int>()),
+    broken(tets.size(), vector<bool>()),
+    weights(tets.size(), vector<float>()),
+    velocities(tets.size(), glm::vec4(0)), forces(tets.size(), glm::vec4(0))
 {
+    for (uint i = 0; i < tets.size(); i++) {
+        glm::uvec4 tet = tets[i];
+        int A = tet[0];
+        int B = tet[1];
+        int C = tet[2];
+        int D = tet[3];
+        tetNeighborhoods[A].push_back(i);
+        tetNeighborhoods[B].push_back(i);
+        tetNeighborhoods[C].push_back(i);
+        tetNeighborhoods[D].push_back(i);
+        particles[i] = (nodes[A] + nodes[B] + nodes[C] + nodes[D]) / 4.0f;
+        if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed[i] = true;
+    }
+
     for (uint i = 0; i < particles.size()-1; i++) {
         glm::vec4 pos = particles[i];
         for (uint j = i+1; j < particles.size(); j++) {
@@ -38,16 +57,26 @@ SpringSystem::SpringSystem(
     }
 }
 
-std::vector<glm::vec4> SpringSystem::getNewPositions() {
+void PeridynamicSystem::calculateNewPositions() {
     // midway velocity
     for (uint i = 0; i < particles.size(); i++) {
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/2.0f;
     }
-    // new positions
+    // new particle positions
     for (uint i = 0; i < particles.size(); i++) {
         if (fixed[i]) continue;
         particles[i] += velocities[i]*time;
+    }
+    // new node positions
+    for (uint i = 0; i < nodes.size(); i++) {
+        // TODO needs weights and masses
+        glm::vec4 velocity = glm::vec4(0);
+        for (uint j = 0; j < tetNeighborhoods[i].size(); j++) {
+            velocity += velocities[j];
+        }
+        velocity /= tetNeighborhoods[i].size();
+        nodes[i] += velocity*time;
     }
     // calculate forces
     calculateForces();
@@ -56,19 +85,18 @@ std::vector<glm::vec4> SpringSystem::getNewPositions() {
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/2.0f;
     }
-    return particles;
 }
 
-void SpringSystem::calculateForces() {
+void PeridynamicSystem::calculateForces() {
     // reset forces
-    forces = std::vector<glm::vec4>(particles.size(), glm::vec4(0));
+    forces = vector<glm::vec4>(particles.size(), glm::vec4(0));
 
     // compute relevant values from deformed positions
-    std::vector<std::vector<glm::vec4>> vecs(particles.size());
-    std::vector<std::vector<float>> lengths(particles.size());
-    std::vector<std::vector<glm::vec4>> dirs(particles.size());
-    std::vector<std::vector<float>> extensions(particles.size());
-    std::vector<std::vector<float>> stretches(particles.size());
+    vector<vector<glm::vec4>> vecs(particles.size());
+    vector<vector<float>> lengths(particles.size());
+    vector<vector<glm::vec4>> dirs(particles.size());
+    vector<vector<float>> extensions(particles.size());
+    vector<vector<float>> stretches(particles.size());
 
     for (uint i = 0; i < particles.size(); i++) {
         vecs[i].resize(neighborhoods[i].size());
@@ -86,10 +114,12 @@ void SpringSystem::calculateForces() {
             float init_length = init_lengths[i][j];
             float extension = length - init_length;
             float stretch = extension / init_length;
+            /*
             if (stretch >= .5) {
                 broken[i][j] = true;
                 continue;
             }
+            */
             vecs[i][j] = vec;
             lengths[i][j] = length;
             dirs[i][j] = dir;
@@ -99,7 +129,7 @@ void SpringSystem::calculateForces() {
     }
 
     // compute dilatations
-    std::vector<float> thetas(particles.size());
+    vector<float> thetas(particles.size());
 
     for (uint i = 0; i < particles.size(); i++) {
         float sum = 0.0f;
