@@ -7,7 +7,7 @@ using namespace std;
 PeridynamicSystem::PeridynamicSystem(
         vector<glm::vec4> nodes,
         vector<bool> fixedNodes,
-        vector<glm::uvec4> tets
+        vector<vector<int>> tets
         ) : nodes(nodes), fixed(tets.size(), false),
     tetNeighborhoods(nodes.size(), vector<int>()),
     particles(tets.size(), glm::vec4(0)),
@@ -20,7 +20,7 @@ PeridynamicSystem::PeridynamicSystem(
     velocities(tets.size(), glm::vec4(0)), forces(tets.size(), glm::vec4(0))
 {
     for (uint i = 0; i < tets.size(); i++) {
-        glm::uvec4 tet = tets[i];
+        vector<int> tet = tets[i];
         int A = tet[0];
         int B = tet[1];
         int C = tet[2];
@@ -73,7 +73,7 @@ void PeridynamicSystem::calculateNewPositions() {
         // TODO needs weights and masses
         glm::vec4 velocity = glm::vec4(0);
         for (uint j = 0; j < tetNeighborhoods[i].size(); j++) {
-            velocity += velocities[j];
+            velocity += velocities[tetNeighborhoods[i][j]];
         }
         velocity /= tetNeighborhoods[i].size();
         nodes[i] += velocity*time;

@@ -38,7 +38,6 @@ const char* floor_fragment_shader =
 #include "shaders/floor.frag"
 ;
 
-/*
 const char* block_vertex_shader =
 #include "shaders/block.vert"
 ;
@@ -50,7 +49,6 @@ const char* block_geometry_shader =
 const char* block_fragment_shader =
 #include "shaders/block.frag"
 ;
-*/
 
 const char* box_vertex_shader =
 #include "shaders/box.vert"
@@ -203,11 +201,16 @@ int main(int argc, char* argv[])
     tetsFile.open("box.1.ele");
     int nT, nN, nAT;
     tetsFile >> nT >> nN >> nAT;
-    vector<glm::uvec4> tets(nT);
+    vector<vector<int>> tets(nT);
     for (int i = 0; i < nT; i++) {
         int t, A, B, C, D;
         tetsFile >> t >> A >> B >> C >> D;
-        tets[t] = glm::uvec4(A,B,C,D);
+        vector<int> tet = vector<int>(4);
+        tet[0] = A;
+        tet[1] = B;
+        tet[2] = C;
+        tet[3] = D;
+        tets[t] = tet;
     }
     tetsFile.close();
 
@@ -220,13 +223,13 @@ int main(int argc, char* argv[])
     vector<bool> fixed;
     CreateBox(particles,fixed);
     SpringSystem* ss = new SpringSystem(particles,fixed);
+    */
 
     // Block
 
     vector<glm::vec4> block_vertices;
     vector<glm::uvec3> block_faces;
     CreateBlock(block_vertices, block_faces);
-    */
 
     glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
     MatrixPointers mats; // Define MatrixPointers here for lambda to capture
@@ -254,6 +257,9 @@ int main(int argc, char* argv[])
     };
     auto int_binder = [](int loc, const void* data) {
         glUniform1iv(loc, 1, (const GLint*)data);
+    };
+    auto block_delta_binder = [&ps](int loc, const void* data) {
+        glUniform4fv(loc, ps->particles.size(), (const GLfloat*)data);
     };
     auto vertex_positions_binder = [&ps](int loc, const void* data) {
         glUniform4fv(loc, ps->nodes.size(), (const GLfloat*)data);
@@ -289,11 +295,9 @@ int main(int argc, char* argv[])
         else
             return &non_transparet;
     };
-    /*
-    auto block_delta_data = [&particles]() -> const void* {
-        return particles.data();
+    auto block_delta_data = [&ps]() -> const void* {
+        return ps->particles.data();
     };
-    */
     auto vertex_positions_data = [&ps]() -> const void* {
         return ps->nodes.data();
     };
@@ -312,9 +316,7 @@ int main(int argc, char* argv[])
     ShaderUniform std_proj = { "projection", matrix_binder, std_proj_data };
     ShaderUniform std_light = { "light_position", vector_binder, std_light_data };
     ShaderUniform object_alpha = { "alpha", float_binder, alpha_data };
-    /*
-    ShaderUniform block_delta = { "block_delta", vertex_positions_binder, block_delta_data };
-    */
+    ShaderUniform block_delta = { "block_delta", block_delta_binder, block_delta_data };
     ShaderUniform vertex_positions = { "vertex_positions", vertex_positions_binder, vertex_positions_data };
     ShaderUniform box_delta = { "box_delta", float_binder, box_delta_data };
     // FIXME: define more ShaderUniforms for RenderPass if you want to use it.
@@ -331,7 +333,6 @@ int main(int argc, char* argv[])
             { "fragment_color" }
             );
 
-    /* 
     RenderDataInput block_pass_input;
     block_pass_input.assign(0, "vertex_position", block_vertices.data(), block_vertices.size(), 4, GL_FLOAT);
     block_pass_input.assignIndex(block_faces.data(), block_faces.size(), 3);
@@ -339,10 +340,10 @@ int main(int argc, char* argv[])
             { block_vertex_shader, block_geometry_shader, block_fragment_shader},
             { std_model, std_view, std_proj,
             std_light, std_camera,
-            block_delta },
+            block_delta,
+            box_delta },
             { "fragment_color" }
             );
-    */
 
     vector<int> vec;
     for(uint i = 0; i < nodes.size(); i++) {
@@ -397,13 +398,15 @@ int main(int argc, char* argv[])
         block_pass.setup();
         CHECK_GL_ERROR(glDrawElementsInstanced(GL_TRIANGLES,
                     block_faces.size() * 3,
-                    GL_UNSIGNED_INT, 0, particles.size()));
+                    GL_UNSIGNED_INT, 0, ps->particles.size()));
         */
 
+        /**/
         box_pass.setup();
         CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
                     faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
+        /**/
 
         // Poll and swap.
         glfwPollEvents();

@@ -12,16 +12,16 @@ class PeridynamicSystem {
         PeridynamicSystem(
                 vector<glm::vec4> nodes,
                 vector<bool> fixedNodes,
-                vector<glm::uvec4> tets
+                vector<vector<int>> tets
                 );
         PeridynamicSystem() {};
         void calculateNewPositions();
         vector<glm::vec4> nodes;
+        vector<glm::vec4> particles;
     private:
         void calculateForces();
         vector<bool> fixed;
         vector<vector<int>> tetNeighborhoods;
-        vector<glm::vec4> particles;
         vector<vector<int>> neighborhoods;
         vector<vector<bool>> broken;
         vector<vector<glm::vec4>> init_vecs;
