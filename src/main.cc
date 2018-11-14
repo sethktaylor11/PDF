@@ -152,6 +152,55 @@ void CreateBlock(vector<glm::vec4>& obj_vertices,
     obj_faces.push_back(glm::uvec3(4, 7, 5)); 
 }
 
+void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
+    ifstream nodesFile;
+    nodesFile.open("box.1.node");
+    int nP, d, nAN, nBN;
+    nodesFile >> nP >> d >> nAN >> nBN;
+    nodes.resize(nP);
+    fixedNodes.resize(nP);
+    int p;
+    float x, y, z;
+    for (int i = 0; i < nP; i++) {
+        nodesFile >> p >> x >> y >> z;
+        nodes[p] = glm::vec4(x,y,z,1);
+        //if (x == -4.0f) fixedNodes[p] = true;
+    }
+}
+
+void readFaces(vector<glm::uvec3>& faces, vector<int>& neighbors) {
+    ifstream facesFile;
+    facesFile.open("box.1.face");
+    int nF, nBF;
+    facesFile >> nF >> nBF;
+    faces.resize(nF);
+    neighbors.resize(nF);
+    for (int i = 0; i < nF; i++) {
+        int f, A, B, C, b, n1, n2;
+        facesFile >> f >> A >> B >> C >> b >> n1 >> n2;
+        faces[f] = glm::uvec3(A,C,B);
+        neighbors[f] = n1;
+    }
+}
+
+void readTets(vector<vector<int>>& tets) {
+    ifstream tetsFile;
+    tetsFile.open("box.1.ele");
+    int nT, nN, nAT;
+    tetsFile >> nT >> nN >> nAT;
+    tets.resize(nT);
+    for (int i = 0; i < nT; i++) {
+        int t, A, B, C, D;
+        tetsFile >> t >> A >> B >> C >> D;
+        vector<int> tet = vector<int>(4);
+        tet[0] = A;
+        tet[1] = B;
+        tet[2] = C;
+        tet[3] = D;
+        tets[t] = tet;
+    }
+}
+
 int main(int argc, char* argv[])
 {
     bool collisionDetection = false;
@@ -166,55 +215,22 @@ int main(int argc, char* argv[])
 
     // Read Nodes
 
-    ifstream nodesFile;
-    nodesFile.open("box.1.node");
-    int nP, d, nAN, nBN;
-    nodesFile >> nP >> d >> nAN >> nBN;
-    vector<glm::vec4> nodes(nP);
-    vector<bool> fixedNodes(nP);
-    int p;
-    float x, y, z;
-    for (int i = 0; i < nP; i++) {
-        nodesFile >> p >> x >> y >> z;
-        nodes[p] = glm::vec4(x,y,z,1);
-        if (x == -4.0f) fixedNodes[p] = true;
-    }
-    nodesFile.close();
+    vector<glm::vec4> nodes;
+    vector<bool> fixedNodes;
+    readNodes(nodes, fixedNodes);
 
     // Read Faces
 
-    ifstream facesFile;
-    facesFile.open("box.1.face");
-    int nF, nBF;
-    facesFile >> nF >> nBF;
-    vector<glm::uvec3> faces(nF);
-    for (int i = 0; i < nF; i++) {
-        int f, A, B, C, b;
-        facesFile >> f >> A >> B >> C >> b;
-        faces[f] = glm::uvec3(A,C,B);
-    }
-    facesFile.close();
+    vector<glm::uvec3> faces;
+    vector<int> neighbors;
+    readFaces(faces, neighbors);
 
     // Read Tets
 
-    ifstream tetsFile;
-    tetsFile.open("box.1.ele");
-    int nT, nN, nAT;
-    tetsFile >> nT >> nN >> nAT;
-    vector<vector<int>> tets(nT);
-    for (int i = 0; i < nT; i++) {
-        int t, A, B, C, D;
-        tetsFile >> t >> A >> B >> C >> D;
-        vector<int> tet = vector<int>(4);
-        tet[0] = A;
-        tet[1] = B;
-        tet[2] = C;
-        tet[3] = D;
-        tets[t] = tet;
-    }
-    tetsFile.close();
+    vector<vector<int>> tets;
+    readTets(tets);
 
-    PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets);
+    PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets,faces,neighbors);
 
     /*
     // Box
@@ -302,7 +318,7 @@ int main(int argc, char* argv[])
         return ps->nodes.data();
     };
     auto box_delta_data = []() -> const void* {
-        static const float box_delta = 5.0f;
+        static const float box_delta = 3.0f;
         return &box_delta;
     };
 

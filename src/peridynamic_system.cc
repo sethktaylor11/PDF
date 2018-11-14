@@ -7,8 +7,10 @@ using namespace std;
 PeridynamicSystem::PeridynamicSystem(
         vector<glm::vec4> nodes,
         vector<bool> fixedNodes,
-        vector<vector<int>> tets
-        ) : nodes(nodes), fixed(tets.size(), false),
+        vector<vector<int>> tets,
+        vector<glm::uvec3> faces,
+        vector<int> neighbors
+        ) : nodes(nodes), faces(faces), neighbors(neighbors), fixed(tets.size(), false),
     tetNeighborhoods(nodes.size(), vector<int>()),
     particles(tets.size(), glm::vec4(0)),
     init_vecs(tets.size(), vector<glm::vec4>()),
@@ -175,6 +177,18 @@ void PeridynamicSystem::calculateForces() {
             forces[p2] += Tp1p2 * volume; // volume[p1];
             forces[p2] -= Tp2p1 * volume; // volume[p1];
         }
-        forces[p1] += glm::vec4(0,-1,0,0);
+        //forces[p1] += glm::vec4(0,-1,0,0);
+    }
+
+    // compute pressure
+    for (uint i = 0; i < faces.size(); i++) {
+        glm::uvec3 face = faces[i];
+        glm::vec4 A = nodes[face[0]];
+        glm::vec4 B = nodes[face[1]];
+        glm::vec4 C = nodes[face[2]];
+        glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
+        glm::vec3 n = glm::normalize(N);
+        float area = glm::length(N)/2;
+        forces[neighbors[i]] += -5.0f * glm::vec4(n,0) * area;
     }
 }
