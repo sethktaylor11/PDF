@@ -28,8 +28,8 @@ class SpringSystem {
         TicTocTimer t = tic();
         float time = 0.015f;
         float delta = 0.6f;
-        float a = 1000.0f;
-        float b = 1000.0f;
+        float a = 5000000000.0f;
+        float b = 5000000000.0f;
         float volume = 0.015625f;
 };
 

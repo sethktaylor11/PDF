@@ -14,6 +14,7 @@ class PeridynamicSystem {
                 vector<bool> fixedNodes,
                 vector<vector<int>> tets,
                 vector<glm::uvec3> faces,
+                vector<int> boundary,
                 vector<int> neighbors
                 );
         PeridynamicSystem() {};
@@ -21,6 +22,7 @@ class PeridynamicSystem {
         vector<glm::vec4> nodes;
         vector<glm::vec4> particles;
         vector<glm::uvec3> faces;
+        vector<int> boundary;
         vector<int> neighbors;
     private:
         void calculateForces();
@@ -37,8 +39,8 @@ class PeridynamicSystem {
         TicTocTimer t = tic();
         float time = 0.015f;
         float delta = 0.6f;
-        float a = 1000.0f;
-        float b = 1000.0f;
+        float a = 50000.0f;
+        float b = 50000.0f;
         float volume = 0.015625f;
 };
 

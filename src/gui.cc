@@ -138,6 +138,8 @@ void GUI::keyCallback(int key, int scancode, int action, int mods)
         glfwSetWindowShouldClose(window_, GL_TRUE);
         return ;
     }
+    if (captureWASDUPDOWN(key, action))
+        return ;
 }
 
 void GUI::mousePosCallback(double mouse_x, double mouse_y)

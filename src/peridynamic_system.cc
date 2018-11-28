@@ -9,8 +9,10 @@ PeridynamicSystem::PeridynamicSystem(
         vector<bool> fixedNodes,
         vector<vector<int>> tets,
         vector<glm::uvec3> faces,
+        vector<int> boundary,
         vector<int> neighbors
-        ) : nodes(nodes), faces(faces), neighbors(neighbors), fixed(tets.size(), false),
+        ) : nodes(nodes), faces(faces), boundary(boundary),
+    neighbors(neighbors), fixed(tets.size(), false),
     tetNeighborhoods(nodes.size(), vector<int>()),
     particles(tets.size(), glm::vec4(0)),
     init_vecs(tets.size(), vector<glm::vec4>()),
@@ -182,6 +184,7 @@ void PeridynamicSystem::calculateForces() {
 
     // compute pressure
     for (uint i = 0; i < faces.size(); i++) {
+        if (boundary[i] != 2) continue;
         glm::uvec3 face = faces[i];
         glm::vec4 A = nodes[face[0]];
         glm::vec4 B = nodes[face[1]];
@@ -189,6 +192,6 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        forces[neighbors[i]] += -5.0f * glm::vec4(n,0) * area;
+        forces[neighbors[i]] += -40.0f * glm::vec4(n,0) * area;
     }
 }
