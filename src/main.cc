@@ -106,15 +106,15 @@ void CreateBox(vector<glm::vec4>& particle_pos,
 
     for (float i = -length/2; i <= length/2+inc/2; i+=inc) {
         for (float j = 8; j <= 8+(height+inc/2); j+=inc) {
-	    for (float k = -width/2; k <= width/2+inc/2; k+=inc) {
-		particle_pos.push_back(glm::vec4(i,j,k,1.0));
-		if(i < -length/2 + inc/2) {
-		    fixed_points.push_back(true);
-		} else {
-		    fixed_points.push_back(false);
-		}
-	    }
-	}
+            for (float k = -width/2; k <= width/2+inc/2; k+=inc) {
+                particle_pos.push_back(glm::vec4(i,j,k,1.0));
+                if(i < -length/2 + inc/2) {
+                    fixed_points.push_back(true);
+                } else {
+                    fixed_points.push_back(false);
+                }
+            }
+        }
     }
 }
 
@@ -242,13 +242,13 @@ int main(int argc, char* argv[])
     vector<bool> fixed;
     CreateBox(particles,fixed);
     SpringSystem* ss = new SpringSystem(particles,fixed);
-    */
 
     // Block
 
     vector<glm::vec4> block_vertices;
     vector<glm::uvec3> block_faces;
     CreateBlock(block_vertices, block_faces);
+    */
 
     glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
     MatrixPointers mats; // Define MatrixPointers here for lambda to capture
@@ -352,6 +352,7 @@ int main(int argc, char* argv[])
             { "fragment_color" }
             );
 
+    /*
     RenderDataInput block_pass_input;
     block_pass_input.assign(0, "vertex_position", block_vertices.data(), block_vertices.size(), 4, GL_FLOAT);
     block_pass_input.assignIndex(block_faces.data(), block_faces.size(), 3);
@@ -363,6 +364,7 @@ int main(int argc, char* argv[])
             box_delta },
             { "fragment_color" }
             );
+    */
 
     vector<int> vec;
     for(uint i = 0; i < nodes.size(); i++) {
@@ -406,7 +408,7 @@ int main(int argc, char* argv[])
                     floor_faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
 
-        ps->calculateNewPositions();
+        //ps->calculateNewPositions();
 
         /*
         vector<glm::vec4> particles2 = ss->getNewPositions();

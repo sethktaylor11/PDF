@@ -3,7 +3,7 @@ R"zzz(
 uniform vec4 light_position;
 uniform vec3 camera_position;
 
-uniform vec4 block_delta[1024];
+uniform vec4 block_delta[1000];
 uniform float box_delta;
 
 in vec4 vertex_position;

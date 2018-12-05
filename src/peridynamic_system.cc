@@ -67,11 +67,19 @@ void PeridynamicSystem::calculateNewPositions() {
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/2.0f;
     }
+    glm::vec3 linear = glm::vec3(0);
+    glm::vec3 angular = glm::vec3(0);
     // new particle positions
     for (uint i = 0; i < particles.size(); i++) {
+        linear += glm::vec3(velocities[i]);
+        angular += glm::cross(glm::vec3(particles[i]),glm::vec3(velocities[i]));
+        // damping
+        velocities[i] *= 1-damping;
         if (fixed[i]) continue;
         particles[i] += velocities[i]*time;
     }
+    cout << "linear 1 " << glm::to_string(linear) << endl;
+    cout << "angular 1 " << glm::to_string(angular) << endl;
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
@@ -84,11 +92,18 @@ void PeridynamicSystem::calculateNewPositions() {
     }
     // calculate forces
     calculateForces();
+    linear = glm::vec3(0);
+    angular = glm::vec3(0);
     // new velocities
     for (uint i = 0; i < particles.size(); i++) {
+        linear += glm::vec3(velocities[i]);
+        angular += glm::cross(glm::vec3(particles[i]),glm::vec3(velocities[i]));
+        velocities[i] *= 1-damping;
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/2.0f;
     }
+    cout << "linear 2 " << glm::to_string(linear) << endl;
+    cout << "angular 2 " << glm::to_string(angular) << endl;
 }
 
 void PeridynamicSystem::calculateForces() {
@@ -182,6 +197,7 @@ void PeridynamicSystem::calculateForces() {
         //forces[p1] += glm::vec4(0,-1,0,0);
     }
 
+    glm::vec4 pressure = glm::vec4(0);
     // compute pressure
     for (uint i = 0; i < faces.size(); i++) {
         if (boundary[i] != 2) continue;
@@ -193,5 +209,8 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
         forces[neighbors[i]] += -40.0f * glm::vec4(n,0) * area;
+        pressure += -40.0f * glm::vec4(n,0) * area;
     }
+    cout << "pressure " << glm::to_string(pressure) << endl;
+    //assert(glm::length(pressure) == 0);
 }
