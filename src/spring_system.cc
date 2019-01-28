@@ -1,5 +1,6 @@
 #include "spring_system.h"
 #include <iostream>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
 SpringSystem::SpringSystem(
