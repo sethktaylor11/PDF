@@ -1,8 +1,8 @@
 #ifndef SKINNING_GUI_H
 #define SKINNING_GUI_H
 
+#include <vector>
 #include <glm/glm.hpp>
-#include "spring_system.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 
@@ -35,7 +35,6 @@ class GUI {
         const float* getLightPositionPtr() const { return &light_position_[0]; }
 
         bool isTransparent() const { return transparent_; }
-        SpringSystem spring_system;
         std::vector<int> vertices;
         std::vector<glm::vec2> uv_coords;
         std::vector<glm::uvec3> faces;
