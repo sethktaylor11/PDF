@@ -174,14 +174,20 @@ void readFaces(vector<glm::uvec3>& faces, vector<int>& boundary, vector<int>& ne
     facesFile.open("tank.1.face");
     int nF, nBF;
     facesFile >> nF >> nBF;
-    faces.resize(nF);
-    boundary.resize(nF);
+    //faces.resize(nF);
+    //boundary.resize(nF);
+    faces.clear();
+    boundary.clear();
     neighbors.resize(nF);
     for (int i = 0; i < nF; i++) {
         int f, A, B, C, b, n1, n2;
         facesFile >> f >> A >> B >> C >> b >> n1 >> n2;
-        faces[f] = glm::uvec3(A,C,B);
-        boundary[f] = b;
+        //faces[f] = glm::uvec3(A,C,B);
+        //boundary[f] = b;
+        if (b == 2) {
+            faces.push_back(glm::uvec3(A,C,B));
+	    boundary.push_back(b);
+	}
         neighbors[f] = n1 + n2 + 1;
     }
 }
@@ -228,6 +234,20 @@ int main(int argc, char* argv[])
     vector<int> boundary;
     vector<int> neighbors;
     readFaces(faces, boundary, neighbors);
+
+    glm::vec3 pressure = glm::vec3(0);
+    // compute pressure
+    for (uint i = 0; i < faces.size(); i++) {
+        if (boundary[i] != 2) continue;
+        glm::uvec3 face = faces[i];
+        glm::vec4 A = nodes[face[0]];
+        glm::vec4 B = nodes[face[1]];
+        glm::vec4 C = nodes[face[2]];
+        glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
+        pressure += N;
+    }
+    cout << "pressure " << glm::to_string(pressure) << endl;
+    cout << "pressure magnitude " << glm::length(pressure) << endl;
 
     // Read Tets
 
