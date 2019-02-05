@@ -174,20 +174,14 @@ void readFaces(vector<glm::uvec3>& faces, vector<int>& boundary, vector<int>& ne
     facesFile.open("tank.1.face");
     int nF, nBF;
     facesFile >> nF >> nBF;
-    //faces.resize(nF);
-    //boundary.resize(nF);
-    faces.clear();
-    boundary.clear();
+    faces.resize(nF);
+    boundary.resize(nF);
     neighbors.resize(nF);
     for (int i = 0; i < nF; i++) {
         int f, A, B, C, b, n1, n2;
         facesFile >> f >> A >> B >> C >> b >> n1 >> n2;
-        //faces[f] = glm::uvec3(A,C,B);
-        //boundary[f] = b;
-        if (b == 2) {
-            faces.push_back(glm::uvec3(A,C,B));
-	    boundary.push_back(b);
-	}
+        faces[f] = glm::uvec3(A,C,B);
+        boundary[f] = b;
         neighbors[f] = n1 + n2 + 1;
     }
 }
@@ -235,6 +229,7 @@ int main(int argc, char* argv[])
     vector<int> neighbors;
     readFaces(faces, boundary, neighbors);
 
+    /*
     glm::vec3 pressure = glm::vec3(0);
     // compute pressure
     for (uint i = 0; i < faces.size(); i++) {
@@ -248,6 +243,7 @@ int main(int argc, char* argv[])
     }
     cout << "pressure " << glm::to_string(pressure) << endl;
     cout << "pressure magnitude " << glm::length(pressure) << endl;
+    */
 
     // Read Tets
 
@@ -429,9 +425,9 @@ int main(int argc, char* argv[])
                     floor_faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
 
-        //ps->calculateNewPositions();
+        ps->calculateNewPositions();
 
-        /*
+	/*
         vector<glm::vec4> particles2 = ss->getNewPositions();
         for(uint i = 0; i < particles2.size(); ++i) {
             particles[i] = particles2[i];
@@ -441,7 +437,7 @@ int main(int argc, char* argv[])
         CHECK_GL_ERROR(glDrawElementsInstanced(GL_TRIANGLES,
                     block_faces.size() * 3,
                     GL_UNSIGNED_INT, 0, ps->particles.size()));
-        */
+		    */
 
         /**/
         box_pass.setup();

@@ -79,8 +79,8 @@ void PeridynamicSystem::calculateNewPositions() {
         if (fixed[i]) continue;
         particles[i] += velocities[i]*time;
     }
-    cout << "linear 1 " << glm::to_string(linear) << endl;
-    cout << "angular 1 " << glm::to_string(angular) << endl;
+    //cout << "linear 1 " << glm::to_string(linear) << endl;
+    //cout << "angular 1 " << glm::to_string(angular) << endl;
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
@@ -103,8 +103,8 @@ void PeridynamicSystem::calculateNewPositions() {
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/2.0f;
     }
-    cout << "linear 2 " << glm::to_string(linear) << endl;
-    cout << "angular 2 " << glm::to_string(angular) << endl;
+    //cout << "linear 2 " << glm::to_string(linear) << endl;
+    //cout << "angular 2 " << glm::to_string(angular) << endl;
 }
 
 void PeridynamicSystem::calculateForces() {
@@ -213,5 +213,10 @@ void PeridynamicSystem::calculateForces() {
         pressure += -40.0f * glm::vec4(n,0) * area;
     }
     cout << "pressure " << glm::to_string(pressure) << endl;
-    //assert(glm::length(pressure) == 0);
+    glm::vec3 angular = glm::vec3(0);
+    for (uint i = 0; i < particles.size(); i++) {
+	angular += glm::cross(glm::vec3(particles[i])-glm::vec3(0,3,0),glm::vec3(forces[i]));
+    }
+    cout << "angular " << glm::to_string(angular) << endl;
+    assert(glm::length(pressure) == 0);
 }
