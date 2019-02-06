@@ -66,21 +66,15 @@ void PeridynamicSystem::calculateNewPositions() {
     // midway velocity
     for (uint i = 0; i < particles.size(); i++) {
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/2.0f;
+        velocities[i] += forces[i]*time/(2*volume); // volume[i]
     }
-    glm::vec3 linear = glm::vec3(0);
-    glm::vec3 angular = glm::vec3(0);
     // new particle positions
     for (uint i = 0; i < particles.size(); i++) {
-        linear += glm::vec3(velocities[i]);
-        angular += glm::cross(glm::vec3(particles[i]),glm::vec3(velocities[i]));
         // damping
         velocities[i] *= 1-damping;
         if (fixed[i]) continue;
         particles[i] += velocities[i]*time;
     }
-    //cout << "linear 1 " << glm::to_string(linear) << endl;
-    //cout << "angular 1 " << glm::to_string(angular) << endl;
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
@@ -93,18 +87,12 @@ void PeridynamicSystem::calculateNewPositions() {
     }
     // calculate forces
     calculateForces();
-    linear = glm::vec3(0);
-    angular = glm::vec3(0);
     // new velocities
     for (uint i = 0; i < particles.size(); i++) {
-        linear += glm::vec3(velocities[i]);
-        angular += glm::cross(glm::vec3(particles[i]),glm::vec3(velocities[i]));
         velocities[i] *= 1-damping;
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/2.0f;
+        velocities[i] += forces[i]*time/(2*volume); // volume[i]
     }
-    //cout << "linear 2 " << glm::to_string(linear) << endl;
-    //cout << "angular 2 " << glm::to_string(angular) << endl;
 }
 
 void PeridynamicSystem::calculateForces() {
@@ -195,9 +183,10 @@ void PeridynamicSystem::calculateForces() {
             forces[p2] += Tp1p2 * volume; // volume[p1];
             forces[p2] -= Tp2p1 * volume; // volume[p1];
         }
-        //forces[p1] += glm::vec4(0,-1,0,0);
+        forces[p1] += glm::vec4(0,-1,0,0) * volume; // volume[i]
     }
 
+    /*
     glm::vec4 pressure = glm::vec4(0);
     // compute pressure
     for (uint i = 0; i < faces.size(); i++) {
@@ -219,4 +208,5 @@ void PeridynamicSystem::calculateForces() {
     }
     cout << "angular " << glm::to_string(angular) << endl;
     assert(glm::length(pressure) == 0);
+    */
 }

@@ -39,8 +39,8 @@ class PeridynamicSystem {
         TicTocTimer t = tic();
         float time = 0.015f;
         float delta = 0.6f;
-        float a = 10000.0f;
-        float b = 10000.0f;
+        float a = 10.0f;
+        float b = 10.0f;
         float volume = 0.015625f;
         float damping = 0.001f;
 };
