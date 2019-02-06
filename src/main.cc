@@ -5,7 +5,6 @@
 #include "render_pass.h"
 #include "config.h"
 #include "gui.h"
-//#include "spring_system.h"
 #include "peridynamic_system.h"
 
 #include <algorithm>
@@ -37,18 +36,6 @@ const char* geometry_shader =
 
 const char* floor_fragment_shader =
 #include "shaders/floor.frag"
-;
-
-const char* block_vertex_shader =
-#include "shaders/block.vert"
-;
-
-const char* block_geometry_shader =
-#include "shaders/block.geom"
-;
-
-const char* block_fragment_shader =
-#include "shaders/block.frag"
 ;
 
 const char* box_vertex_shader =
@@ -94,65 +81,6 @@ GLFWwindow* init_glefw()
     return ret;
 }
 
-void CreateBox(vector<glm::vec4>& particle_pos,
-        vector<bool>& fixed_points)
-{
-    particle_pos.clear();
-    fixed_points.clear();
-
-    float length = 8.0;
-    float width = 1.0;
-    float height = 1.0;
-    float inc = 0.25;
-
-    for (float i = -length/2; i <= length/2+inc/2; i+=inc) {
-        for (float j = 8; j <= 8+(height+inc/2); j+=inc) {
-            for (float k = -width/2; k <= width/2+inc/2; k+=inc) {
-                particle_pos.push_back(glm::vec4(i,j,k,1.0));
-                if(i < -length/2 + inc/2) {
-                    fixed_points.push_back(true);
-                } else {
-                    fixed_points.push_back(false);
-                }
-            }
-        }
-    }
-}
-
-void CreateBlock(vector<glm::vec4>& obj_vertices,
-        vector<glm::uvec3>& obj_faces)
-{
-    obj_vertices.clear();
-    obj_faces.clear();
-    float l = .25;
-    for(float i = -l/2; i <= l; i+=l) {
-        for(float j = -l/2; j <= l; j+=l) {
-            for(float k = -l/2; k <= l; k+=l) {
-                obj_vertices.push_back(glm::vec4(i,j,k, 1.0f));
-            }
-        }
-    }
-
-    // Face 1
-    obj_faces.push_back(glm::uvec3(0, 1, 3)); 
-    obj_faces.push_back(glm::uvec3(0, 3, 2)); 
-    // Face 2                             
-    obj_faces.push_back(glm::uvec3(0, 4, 5)); 
-    obj_faces.push_back(glm::uvec3(0, 5, 1)); 
-    // Face 3                             
-    obj_faces.push_back(glm::uvec3(0, 2, 6)); 
-    obj_faces.push_back(glm::uvec3(0, 6, 4)); 
-    // Face 4                           
-    obj_faces.push_back(glm::uvec3(1, 5, 7));
-    obj_faces.push_back(glm::uvec3(1, 7, 3)); 
-    // Face 5                           
-    obj_faces.push_back(glm::uvec3(2, 3, 7)); 
-    obj_faces.push_back(glm::uvec3(2, 7, 6)); 
-    // Face 6                           
-    obj_faces.push_back(glm::uvec3(4, 6, 7)); 
-    obj_faces.push_back(glm::uvec3(4, 7, 5)); 
-}
-
 void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
     ifstream nodesFile;
     nodesFile.open("tank.1.node");
@@ -165,7 +93,7 @@ void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
     for (int i = 0; i < nP; i++) {
         nodesFile >> p >> x >> y >> z;
         nodes[p] = glm::vec4(x,y,z,1);
-        //if (x == -4.0f) fixedNodes[p] = true;
+        if (x == -4.0f) fixedNodes[p] = true;
     }
 }
 
@@ -229,43 +157,12 @@ int main(int argc, char* argv[])
     vector<int> neighbors;
     readFaces(faces, boundary, neighbors);
 
-    /*
-    glm::vec3 pressure = glm::vec3(0);
-    // compute pressure
-    for (uint i = 0; i < faces.size(); i++) {
-        if (boundary[i] != 2) continue;
-        glm::uvec3 face = faces[i];
-        glm::vec4 A = nodes[face[0]];
-        glm::vec4 B = nodes[face[1]];
-        glm::vec4 C = nodes[face[2]];
-        glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
-        pressure += N;
-    }
-    cout << "pressure " << glm::to_string(pressure) << endl;
-    cout << "pressure magnitude " << glm::length(pressure) << endl;
-    */
-
     // Read Tets
 
     vector<vector<int>> tets;
     readTets(tets);
 
     PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets,faces,boundary,neighbors);
-
-    /*
-    // Box
-
-    vector<glm::vec4> particles;
-    vector<bool> fixed;
-    CreateBox(particles,fixed);
-    SpringSystem* ss = new SpringSystem(particles,fixed);
-
-    // Block
-
-    vector<glm::vec4> block_vertices;
-    vector<glm::uvec3> block_faces;
-    CreateBlock(block_vertices, block_faces);
-    */
 
     glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
     MatrixPointers mats; // Define MatrixPointers here for lambda to capture
@@ -338,7 +235,7 @@ int main(int argc, char* argv[])
         return ps->nodes.data();
     };
     auto box_delta_data = []() -> const void* {
-        static const float box_delta = 3.0f;
+        static const float box_delta = 5.0f;
         return &box_delta;
     };
 
@@ -368,20 +265,6 @@ int main(int argc, char* argv[])
             { floor_model, std_view, std_proj, std_light },
             { "fragment_color" }
             );
-
-    /*
-    RenderDataInput block_pass_input;
-    block_pass_input.assign(0, "vertex_position", block_vertices.data(), block_vertices.size(), 4, GL_FLOAT);
-    block_pass_input.assignIndex(block_faces.data(), block_faces.size(), 3);
-    RenderPass block_pass(-1, block_pass_input,
-            { block_vertex_shader, block_geometry_shader, block_fragment_shader},
-            { std_model, std_view, std_proj,
-            std_light, std_camera,
-            block_delta,
-            box_delta },
-            { "fragment_color" }
-            );
-    */
 
     vector<int> vec;
     for(uint i = 0; i < nodes.size(); i++) {
@@ -427,24 +310,10 @@ int main(int argc, char* argv[])
 
         ps->calculateNewPositions();
 
-	/*
-        vector<glm::vec4> particles2 = ss->getNewPositions();
-        for(uint i = 0; i < particles2.size(); ++i) {
-            particles[i] = particles2[i];
-        }
-
-        block_pass.setup();
-        CHECK_GL_ERROR(glDrawElementsInstanced(GL_TRIANGLES,
-                    block_faces.size() * 3,
-                    GL_UNSIGNED_INT, 0, ps->particles.size()));
-		    */
-
-        /**/
         box_pass.setup();
         CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
                     faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
-        /**/
 
         // Poll and swap.
         glfwPollEvents();

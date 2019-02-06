@@ -70,7 +70,7 @@ void PeridynamicSystem::calculateNewPositions() {
     // midway velocity
     for (uint i = 0; i < particles.size(); i++) {
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/(2.0f*volume); // volume[i]
+        velocities[i] += forces[i]*time/(2*volume); // volume[i]
     }
     // new particle positions
     for (uint i = 0; i < particles.size(); i++) {
@@ -95,7 +95,7 @@ void PeridynamicSystem::calculateNewPositions() {
     for (uint i = 0; i < particles.size(); i++) {
         velocities[i] *= 1-damping;
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/(2.0f*volume); // volume[i]
+        velocities[i] += forces[i]*time/(2*volume); // volume[i]
     }
 }
 
@@ -188,7 +188,7 @@ void PeridynamicSystem::calculateForces() {
             forces[p2] += Tp1p2 * volume; // volume[p1];
             forces[p2] -= Tp2p1 * volume; // volume[p1];
         }
-        //forces[p1] += glm::vec4(0,-1,0,0) * volume; // volume[i]
+        // forces[p1] += glm::vec4(0,-1,0,0) * volume; // volume[i]
     }
 
     //glm::vec4 pressure = glm::vec4(0);
@@ -204,7 +204,7 @@ void PeridynamicSystem::calculateForces() {
         float area = glm::length(N)/2;
         int p = neighbors[i];
 	glm::vec4 P = particles[p];
-	glm::vec3 force = -40.0f * n * area; // volume[i]
+	glm::vec3 force = -1.0f * n * area; // volume[i]
         forces[p] += glm::vec4(force,0);
         //pressure += glm::vec4(force,0);
         glm::vec4 D = (A+B+C)/3.0f;
