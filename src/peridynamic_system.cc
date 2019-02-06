@@ -128,12 +128,10 @@ void PeridynamicSystem::calculateForces() {
             float init_length = init_lengths[i][j];
             float extension = length - init_length;
             float stretch = extension / init_length;
-            /*
-            if (stretch >= .5) {
+            if (stretch >= .1) {
                 broken[i][j] = true;
                 continue;
             }
-            */
             vecs[i][j] = vec;
             lengths[i][j] = length;
             dirs[i][j] = dir;
