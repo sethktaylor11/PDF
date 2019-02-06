@@ -23,6 +23,7 @@ PeridynamicSystem::PeridynamicSystem(
     broken(tets.size(), vector<bool>()),
     weights(tets.size(), vector<float>()),
     volumes(tets.size(), 0),
+    moments(tets.size(), 0),
     velocities(tets.size(), glm::vec4(0)),
     forces(tets.size(), glm::vec4(0)),
     orientations(tets.size(), glm::vec3(0)),
@@ -43,8 +44,16 @@ PeridynamicSystem::PeridynamicSystem(
         glm::vec4 b = nodes[B];
         glm::vec4 c = nodes[C];
         glm::vec4 d = nodes[D];
-        particles[i] = (a + b + c + d) / 4.0f;
-        volumes[i] = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
+	glm::vec4 p = (a + b + c + d) / 4.0f;
+        particles[i] = p;
+        float V = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
+        volumes[i] = V;
+	float r1 = glm::length(a-p);
+	float r2 = glm::length(b-p);
+	float r3 = glm::length(c-p);
+	float r4 = glm::length(d-p);
+	float r = (r1 + r2 + r3 + r4) / 4;
+	moments[i] = 2 * V * glm::pow(r,2) / 5;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed[i] = true;
     }
 
@@ -76,32 +85,37 @@ void PeridynamicSystem::calculateNewPositions() {
     // midway velocity
     for (uint i = 0; i < particles.size(); i++) {
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/(2*volumes[i]);
+        velocities[i] += (1-damping)*forces[i]*time/(2*volumes[i]);
+	angular_velocities[i] += (1-damping)*torques[i]*time/(2*moments[i]);
     }
     // new particle positions
     for (uint i = 0; i < particles.size(); i++) {
         // damping
-        velocities[i] *= 1-damping;
         if (fixed[i]) continue;
         particles[i] += velocities[i]*time;
+	orientations[i] += angular_velocities[i]*time;
     }
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
-        // TODO needs weights and masses
         glm::vec4 velocity = glm::vec4(0);
+	float weight = 0;
         for (uint j = 0; j < tetNeighborhoods[i].size(); j++) {
-            velocity += velocities[tetNeighborhoods[i][j]];
+            int p = tetNeighborhoods[i][j];
+	    float w = volumes[p];
+	    weight += w;
+            velocity += w * velocities[p];
+	    //velocity += glm::vec4(glm::cross(angular_velocities[p],glm::vec3(particles[p]-nodes[i])),0);
         }
-        velocity /= tetNeighborhoods[i].size();
+        velocity /= weight;
         nodes[i] += velocity*time;
     }
     // calculate forces
     calculateForces();
     // new velocities
     for (uint i = 0; i < particles.size(); i++) {
-        velocities[i] *= 1-damping;
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/(2*volumes[i]);
+        velocities[i] += (1-damping)*forces[i]*time/(2*volumes[i]);
+	angular_velocities[i] += (1-damping)*torques[i]*time/(2*moments[i]);
     }
 }
 
@@ -213,9 +227,9 @@ void PeridynamicSystem::calculateForces() {
 	glm::vec3 force = -1.0f * n * area; // volume[i]
         forces[p] += glm::vec4(force,0);
         //pressure += glm::vec4(force,0);
-        glm::vec4 D = (A+B+C)/3.0f;
-        glm::vec3 torque = glm::cross(glm::vec3(D-P),force);
-        cout << "torque " << glm::to_string(torque) << endl;
+        glm::vec4 F = (A+B+C)/3.0f;
+        glm::vec3 torque = glm::cross(glm::vec3(F-P),force);
+        //cout << "torque " << glm::to_string(torque) << endl;
 	torques[p] += torque;
     }
     /*
