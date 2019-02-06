@@ -34,6 +34,7 @@ class PeridynamicSystem {
         vector<vector<float>> init_lengths;
         vector<vector<glm::vec4>> init_dirs;
         vector<vector<float>> weights;
+        vector<float> volumes;
         vector<glm::vec4> velocities;
         vector<glm::vec4> forces;
         vector<glm::vec3> orientations;
