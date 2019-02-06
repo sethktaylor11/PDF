@@ -22,7 +22,11 @@ PeridynamicSystem::PeridynamicSystem(
     neighborhoods(tets.size(), vector<int>()),
     broken(tets.size(), vector<bool>()),
     weights(tets.size(), vector<float>()),
-    velocities(tets.size(), glm::vec4(0)), forces(tets.size(), glm::vec4(0))
+    velocities(tets.size(), glm::vec4(0)),
+    forces(tets.size(), glm::vec4(0)),
+    orientations(tets.size(), glm::vec3(0)),
+    angular_velocities(tets.size(), glm::vec3(0)),
+    torques(tets.size(), glm::vec3(0))
 {
     for (uint i = 0; i < tets.size(); i++) {
         vector<int> tet = tets[i];
@@ -66,21 +70,15 @@ void PeridynamicSystem::calculateNewPositions() {
     // midway velocity
     for (uint i = 0; i < particles.size(); i++) {
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/2.0f;
+        velocities[i] += forces[i]*time/(2.0f*volume); // volume[i]
     }
-    glm::vec3 linear = glm::vec3(0);
-    glm::vec3 angular = glm::vec3(0);
     // new particle positions
     for (uint i = 0; i < particles.size(); i++) {
-        linear += glm::vec3(velocities[i]);
-        angular += glm::cross(glm::vec3(particles[i]),glm::vec3(velocities[i]));
         // damping
         velocities[i] *= 1-damping;
         if (fixed[i]) continue;
         particles[i] += velocities[i]*time;
     }
-    //cout << "linear 1 " << glm::to_string(linear) << endl;
-    //cout << "angular 1 " << glm::to_string(angular) << endl;
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
@@ -93,23 +91,18 @@ void PeridynamicSystem::calculateNewPositions() {
     }
     // calculate forces
     calculateForces();
-    linear = glm::vec3(0);
-    angular = glm::vec3(0);
     // new velocities
     for (uint i = 0; i < particles.size(); i++) {
-        linear += glm::vec3(velocities[i]);
-        angular += glm::cross(glm::vec3(particles[i]),glm::vec3(velocities[i]));
         velocities[i] *= 1-damping;
         if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/2.0f;
+        velocities[i] += forces[i]*time/(2.0f*volume); // volume[i]
     }
-    //cout << "linear 2 " << glm::to_string(linear) << endl;
-    //cout << "angular 2 " << glm::to_string(angular) << endl;
 }
 
 void PeridynamicSystem::calculateForces() {
     // reset forces
     forces = vector<glm::vec4>(particles.size(), glm::vec4(0));
+    torques = vector<glm::vec3>(particles.size(), glm::vec3(0));
 
     // compute relevant values from deformed positions
     vector<vector<glm::vec4>> vecs(particles.size());
@@ -195,10 +188,10 @@ void PeridynamicSystem::calculateForces() {
             forces[p2] += Tp1p2 * volume; // volume[p1];
             forces[p2] -= Tp2p1 * volume; // volume[p1];
         }
-        //forces[p1] += glm::vec4(0,-1,0,0);
+        //forces[p1] += glm::vec4(0,-1,0,0) * volume; // volume[i]
     }
 
-    glm::vec4 pressure = glm::vec4(0);
+    //glm::vec4 pressure = glm::vec4(0);
     // compute pressure
     for (uint i = 0; i < faces.size(); i++) {
         if (boundary[i] != 2) continue;
@@ -209,9 +202,17 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        forces[neighbors[i]] += -40.0f * glm::vec4(n,0) * area;
-        pressure += -40.0f * glm::vec4(n,0) * area;
+        int p = neighbors[i];
+	glm::vec4 P = particles[p];
+	glm::vec3 force = -40.0f * n * area; // volume[i]
+        forces[p] += glm::vec4(force,0);
+        //pressure += glm::vec4(force,0);
+        glm::vec4 D = (A+B+C)/3.0f;
+        glm::vec3 torque = glm::cross(glm::vec3(D-P),force);
+        //cout << "torque " << glm::to_string(torque) << endl;
+	torques[p] += torque;
     }
+    /*
     cout << "pressure " << glm::to_string(pressure) << endl;
     glm::vec3 angular = glm::vec3(0);
     for (uint i = 0; i < particles.size(); i++) {
@@ -219,4 +220,5 @@ void PeridynamicSystem::calculateForces() {
     }
     cout << "angular " << glm::to_string(angular) << endl;
     assert(glm::length(pressure) == 0);
+    */
 }

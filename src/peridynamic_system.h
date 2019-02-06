@@ -36,11 +36,14 @@ class PeridynamicSystem {
         vector<vector<float>> weights;
         vector<glm::vec4> velocities;
         vector<glm::vec4> forces;
+        vector<glm::vec3> orientations;
+        vector<glm::vec3> angular_velocities;
+        vector<glm::vec3> torques;
         TicTocTimer t = tic();
         float time = 0.015f;
         float delta = 0.6f;
-        float a = 10000.0f;
-        float b = 10000.0f;
+        float a = 1.0f;
+        float b = 1.0f;
         float volume = 0.015625f;
         float damping = 0.001f;
 };
