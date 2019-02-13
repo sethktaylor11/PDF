@@ -107,6 +107,17 @@ void PeridynamicSystem::calculateNewPositions() {
 	    //velocity += glm::vec4(glm::cross(angular_velocities[p],glm::vec3(particles[p]-nodes[i])),0);
         }
         velocity /= weight;
+	/*
+	glm::vec3 angular = glm::vec3(0);
+	float moment = 0;
+        for (uint j = 0; j < tetNeighborhoods[i].size(); j++) {
+            int p = tetNeighborhoods[i][j];
+	    float m = moments[p];
+	    moment += m;
+	    angular += m * glm::cross(angular_velocities[p],glm::vec3(particles[p]-nodes[i]));
+        }
+	angular /= moment;
+	*/
         nodes[i] += velocity*time;
     }
     // calculate forces
