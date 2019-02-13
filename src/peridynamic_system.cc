@@ -107,7 +107,6 @@ void PeridynamicSystem::calculateNewPositions() {
 	    //velocity += glm::vec4(glm::cross(angular_velocities[p],glm::vec3(particles[p]-nodes[i])),0);
         }
         velocity /= weight;
-	/*
 	glm::vec3 angular = glm::vec3(0);
 	float moment = 0;
         for (uint j = 0; j < tetNeighborhoods[i].size(); j++) {
@@ -117,8 +116,8 @@ void PeridynamicSystem::calculateNewPositions() {
 	    angular += m * glm::cross(angular_velocities[p],glm::vec3(particles[p]-nodes[i]));
         }
 	angular /= moment;
-	*/
-        nodes[i] += velocity*time;
+        nodes[i] += (velocity+glm::vec4(angular,0))*time;
+        //nodes[i] += velocity*time;
     }
     // calculate forces
     calculateForces();
@@ -218,6 +217,17 @@ void PeridynamicSystem::calculateForces() {
             forces[p1] -= Tp1p2 * volumes[p2];
             forces[p2] += Tp1p2 * volumes[p1];
             forces[p2] -= Tp2p1 * volumes[p1];
+	    glm::vec3 rotation = glm::cross(orientations[p2],orientations[p1]);
+	    if (isnan(glm::length(rotation))) {
+	        cout << "1 " << glm::to_string(orientations[p1]) << endl;
+	        cout << "2 " << glm::to_string(orientations[p2]) << endl;
+	        cout << "rotation " << glm::to_string(rotation) << endl;
+	        cout << "length " << glm::length(rotation) << endl;
+	        assert(false);
+	    }
+	    glm::vec3 torque = -0.5f * weight * 1.0f * rotation;
+	    torques[p1] += torque;
+	    torques[p2] -= torque;
         }
         // forces[p1] += glm::vec4(0,-1,0,0) * volumes[i];
     }
