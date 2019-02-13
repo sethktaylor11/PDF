@@ -194,9 +194,6 @@ int main(int argc, char* argv[])
     auto block_delta_binder = [&ps](int loc, const void* data) {
         glUniform4fv(loc, ps->particles.size(), (const GLfloat*)data);
     };
-    auto vertex_positions_binder = [&ps](int loc, const void* data) {
-        glUniform4fv(loc, ps->nodes.size(), (const GLfloat*)data);
-    };
 
     /*
      * The lambda functions below are used to retrieve data
@@ -231,9 +228,6 @@ int main(int argc, char* argv[])
     auto block_delta_data = [&ps]() -> const void* {
         return ps->particles.data();
     };
-    auto vertex_positions_data = [&ps]() -> const void* {
-        return ps->nodes.data();
-    };
     auto box_delta_data = []() -> const void* {
         static const float box_delta = 10.0f;
         return &box_delta;
@@ -250,7 +244,6 @@ int main(int argc, char* argv[])
     ShaderUniform std_light = { "light_position", vector_binder, std_light_data };
     ShaderUniform object_alpha = { "alpha", float_binder, alpha_data };
     ShaderUniform block_delta = { "block_delta", block_delta_binder, block_delta_data };
-    ShaderUniform vertex_positions = { "vertex_positions", vertex_positions_binder, vertex_positions_data };
     ShaderUniform box_delta = { "box_delta", float_binder, box_delta_data };
     // FIXME: define more ShaderUniforms for RenderPass if you want to use it.
     //        Otherwise, do whatever you like here
@@ -272,19 +265,17 @@ int main(int argc, char* argv[])
     }
 
     RenderDataInput box_pass_input;
-    box_pass_input.assign(1, "vertex", vec.data(), vec.size(), 1, GL_INT);
+    box_pass_input.assign(0, "vertex_position", nodes.data(), nodes.size(), 4, GL_FLOAT);
     box_pass_input.assignIndex(faces.data(), faces.size(), 3);
     RenderPass box_pass(-1, box_pass_input,
             { box_vertex_shader, box_geometry_shader, box_fragment_shader},
             { std_model, std_view, std_proj,
             std_light, std_camera,
-            vertex_positions,
             box_delta },
             { "fragment_color" }
             );
 
-    float aspect = 0.0f;
-
+    int i = 0;
     while (!glfwWindowShouldClose(window)) {
         // Setup some basic window stuff.
         glfwGetFramebufferSize(window, &window_width, &window_height);
@@ -309,6 +300,11 @@ int main(int argc, char* argv[])
                     GL_UNSIGNED_INT, 0));
 
         ps->calculateNewPositions();
+
+	box_pass.updateVBO(0, ps->nodes.data(), ps->nodes.size());
+	/*
+	box_pass.updateVBO(-1, faces.data(), faces.size());
+	*/
 
         box_pass.setup();
         CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
