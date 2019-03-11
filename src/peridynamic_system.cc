@@ -66,6 +66,7 @@ PeridynamicSystem::PeridynamicSystem(
         }
         broken[i].resize(neighborhoods[i].size(),false);
     }
+    broken[particles.size()-1].resize(neighborhoods[particles.size()-1].size(),false);
 }
 
 void PeridynamicSystem::calculateNewPositions() {
@@ -99,6 +100,21 @@ void PeridynamicSystem::calculateNewPositions() {
         if (fixed[i]) continue;
         velocities[i] += forces[i]*time/(2*volumes[i]);
     }
+    // remove broken faces
+    for (uint i = 0; i < faces.size(); i++) {
+        int tet = neighbors[i];
+	if (boundary[i] == 0) std::cout << "found one" << std::endl;
+	for (uint j = 0; j < broken[tet].size(); j++) {
+            if (broken[tet][j]) {
+                faces.erase(faces.begin() + i);
+		boundary.erase(boundary.begin() + i);
+		neighbors.erase(neighbors.begin() + i);
+		i--;
+		continue;
+	    }
+	}
+	i++;
+    }
 }
 
 void PeridynamicSystem::calculateForces() {
@@ -129,6 +145,12 @@ void PeridynamicSystem::calculateForces() {
             float extension = length - init_length;
             float stretch = extension / init_length;
             if (stretch >= .1) {
+		/*
+		if (neighbors(i,j)) {
+                    deleteFaces(i);
+		    deleteFaces(j);
+		}
+		*/
                 broken[i][j] = true;
                 continue;
             }
