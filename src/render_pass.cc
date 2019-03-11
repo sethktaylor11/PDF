@@ -267,6 +267,7 @@ void RenderPass::updateVBO(int position, const void* data, size_t size)
 }
 
 void RenderPass::updateIndex(const void* data, size_t size) {
+	CHECK_GL_ERROR(glBindVertexArray(vao_));
 	auto meta = input_.getIndexMeta();
 	CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
 				glbuffers_.back()
