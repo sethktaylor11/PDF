@@ -266,6 +266,16 @@ void RenderPass::updateVBO(int position, const void* data, size_t size)
 				data, GL_STATIC_DRAW));
 }
 
+void RenderPass::updateIndex(const void* data, size_t size) {
+	auto meta = input_.getIndexMeta();
+	CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+				glbuffers_.back()
+				));
+	CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+				size * meta.getElementSize(),
+				data, GL_STATIC_DRAW));
+}
+
 void RenderPass::setup()
 {
 	// Switch to our object VAO.

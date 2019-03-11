@@ -302,9 +302,7 @@ int main(int argc, char* argv[])
         ps->calculateNewPositions();
 
 	box_pass.updateVBO(0, ps->nodes.data(), ps->nodes.size());
-	/*
-	box_pass.updateVBO(-1, faces.data(), faces.size());
-	*/
+	box_pass.updateIndex(faces.data(), faces.size());
 
         box_pass.setup();
         CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
