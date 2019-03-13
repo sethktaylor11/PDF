@@ -48,6 +48,14 @@ class PeridynamicSystem {
         float b = 10.0f;
         float volume = 0.015625f;
         float damping = 0.001f;
+	float lambda;
+	float mu;
+	float eta = .000001f;
+	float alpha = 1.0f;
+	float beta = 1.0f;
+	float gamma = 1.0f;
+	float G = .000001f;
+	float v = 0.3f;
 };
 
 #endif
