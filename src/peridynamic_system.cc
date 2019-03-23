@@ -123,19 +123,17 @@ void PeridynamicSystem::calculateForces() {
     vector<vector<float>> stretches(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
-        Tet tet1 = tets[i];
-        vecs[i].resize(tet1.neighborhood.size());
-        lengths[i].resize(tet1.neighborhood.size());
-        dirs[i].resize(tet1.neighborhood.size());
-        extensions[i].resize(tet1.neighborhood.size());
-        stretches[i].resize(tet1.neighborhood.size());
-        for (uint j = 0; j < tet1.neighborhood.size(); j++) {
-            if (tet1.broken[j]) continue;
-	    Tet tet2 = tets[tet1.neighborhood[j]];
-            glm::vec4 vec = tet2.position - tet1.position;
+        vecs[i].resize(tets[i].neighborhood.size());
+        lengths[i].resize(tets[i].neighborhood.size());
+        dirs[i].resize(tets[i].neighborhood.size());
+        extensions[i].resize(tets[i].neighborhood.size());
+        stretches[i].resize(tets[i].neighborhood.size());
+        for (uint j = 0; j < tets[i].neighborhood.size(); j++) {
+            if (tets[i].broken[j]) continue;
+            glm::vec4 vec = tets[tets[i].neighborhood[j]].position - tets[i].position;
             float length = glm::length(vec);
             glm::vec4 dir = vec / length;
-            float init_length = tet1.init_lengths[j];
+            float init_length = tets[i].init_lengths[j];
             float extension = length - init_length;
             float stretch = extension / init_length;
             if (stretch >= .1) {
@@ -160,13 +158,12 @@ void PeridynamicSystem::calculateForces() {
     vector<float> thetas(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
-        Tet tet1 = tets[i];
         float sum = 0.0f;
-        for (uint j = 0; j < tet1.neighborhood.size(); j++) {
-            if (tet1.broken[j]) continue;
-            int k = tet1.neighborhood[j];
-            float weight = tet1.weights[j];
-            glm::vec4 init_vec = tet1.init_vecs[j];
+        for (uint j = 0; j < tets[i].neighborhood.size(); j++) {
+            if (tets[i].broken[j]) continue;
+            int k = tets[i].neighborhood[j];
+            float weight = tets[i].weights[j];
+            glm::vec4 init_vec = tets[i].init_vecs[j];
             glm::vec4 dir = dirs[i][j];
             float stretch = stretches[i][j];
             sum += weight * stretch * glm::dot(dir,init_vec) * tets[k].volume;
@@ -178,16 +175,14 @@ void PeridynamicSystem::calculateForces() {
     //compute forces
     for (uint i = 0; i < tets.size(); i++) { 
         int p1 = i;
-        Tet tet1 = tets[p1];
         float theta1 = thetas[p1];
-        for (uint j = 0; j < tet1.neighborhood.size(); j++) {
-            if (tet1.broken[j]) continue;
-            int p2 = tet1.neighborhood[j];
+        for (uint j = 0; j < tets[p1].neighborhood.size(); j++) {
+            if (tets[p1].broken[j]) continue;
+            int p2 = tets[p1].neighborhood[j];
             if (p2 < p1) continue;
-	    Tet tet2 = tets[p2];
-            float weight = tet1.weights[j];
+            float weight = tets[p1].weights[j];
             glm::vec4 dir = dirs[i][j];
-            glm::vec4 init_dir = tet1.init_dirs[j];
+            glm::vec4 init_dir = tets[p1].init_dirs[j];
             float dot = glm::dot(dir,init_dir);
             // Tp2p1
             float A_dil = 4.0f * weight * a * dot * theta1;
@@ -201,12 +196,12 @@ void PeridynamicSystem::calculateForces() {
             A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta2);
             A = A_dil + A_dev;
             glm::vec4 Tp1p2 = 0.5f * A * -dir;
-            tets[p1].force += Tp2p1 * tet2.volume;
-            tets[p1].force -= Tp1p2 * tet2.volume;
-            tets[p2].force += Tp1p2 * tet1.volume;
-            tets[p2].force -= Tp2p1 * tet1.volume;
+            tets[p1].force += Tp2p1 * tets[p2].volume;
+            tets[p1].force -= Tp1p2 * tets[p2].volume;
+            tets[p2].force += Tp1p2 * tets[p1].volume;
+            tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
-        tets[p1].force += glm::vec4(0,-1,0,0) * tet1.volume;
+        tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
     }
 
     /*
