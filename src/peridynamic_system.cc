@@ -8,104 +8,97 @@ using namespace std;
 PeridynamicSystem::PeridynamicSystem(
         vector<glm::vec4> nodes,
         vector<bool> fixedNodes,
-        vector<vector<int>> tets,
+        vector<vector<int>> eles,
         vector<glm::uvec3> faces,
         vector<int> boundary,
         vector<int> neighbors
-        ) : nodes(nodes), faces(faces), boundary(boundary),
-    neighbors(neighbors), fixed(tets.size(), false),
-    tetNeighborhoods(nodes.size(), vector<int>()),
-    particles(tets.size(), glm::vec4(0)),
-    init_vecs(tets.size(), vector<glm::vec4>()),
-    init_lengths(tets.size(), vector<float>()),
-    init_dirs(tets.size(), vector<glm::vec4>()),
-    neighborhoods(tets.size(), vector<int>()),
-    broken(tets.size(), vector<bool>()),
-    weights(tets.size(), vector<float>()),
-    volumes(tets.size(), 0),
-    velocities(tets.size(), glm::vec4(0)), forces(tets.size(), glm::vec4(0))
+        ) : nodes(nodes), faces(faces),
+    boundary(boundary), neighbors(neighbors),
+    tets(eles.size(), Tet()), points(nodes.size(), Point())
 {
-    for (uint i = 0; i < tets.size(); i++) {
-        vector<int> tet = tets[i];
-        int A = tet[0];
-        int B = tet[1];
-        int C = tet[2];
-        int D = tet[3];
-        tetNeighborhoods[A].push_back(i);
-        tetNeighborhoods[B].push_back(i);
-        tetNeighborhoods[C].push_back(i);
-        tetNeighborhoods[D].push_back(i);
+    for (uint i = 0; i < eles.size(); i++) {
+        vector<int> ele = eles[i];
+        int A = ele[0];
+        int B = ele[1];
+        int C = ele[2];
+        int D = ele[3];
+	points[A].neighborhood.push_back(i);
+	points[B].neighborhood.push_back(i);
+	points[C].neighborhood.push_back(i);
+	points[D].neighborhood.push_back(i);
         glm::vec4 a = nodes[A];
         glm::vec4 b = nodes[B];
         glm::vec4 c = nodes[C];
         glm::vec4 d = nodes[D];
-        particles[i] = (a + b + c + d) / 4.0f;
-        volumes[i] = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
-        if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed[i] = true;
+	glm::vec4 position = (a + b + c + d) / 4.0f;
+        float volume = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
+	bool fixed = false;
+        if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
+	tets[i] = Tet(fixed, position, volume);
     }
 
-    for (uint i = 0; i < particles.size()-1; i++) {
-        glm::vec4 pos = particles[i];
-        for (uint j = i+1; j < particles.size(); j++) {
-            glm::vec4 vec = particles[j] - pos;
+    for (uint i = 0; i < tets.size()-1; i++) {
+        glm::vec4 pos = tets[i].position;
+        for (uint j = i+1; j < tets.size(); j++) {
+            glm::vec4 vec = tets[j].position - pos;
             float length = glm::length(vec);
             if (length < delta) {
-                neighborhoods[i].push_back(j);
-                neighborhoods[j].push_back(i);
-                init_vecs[i].push_back(vec);
-                init_vecs[j].push_back(-vec);
-                init_lengths[i].push_back(length);
-                init_lengths[j].push_back(length);
+                tets[i].neighborhood.push_back(j);
+                tets[j].neighborhood.push_back(i);
+                tets[i].init_vecs.push_back(vec);
+                tets[j].init_vecs.push_back(-vec);
+                tets[i].init_lengths.push_back(length);
+                tets[j].init_lengths.push_back(length);
                 glm::vec4 dir = vec / length;
-                init_dirs[i].push_back(dir);
-                init_dirs[j].push_back(-dir);
+                tets[i].init_dirs.push_back(dir);
+                tets[j].init_dirs.push_back(-dir);
                 float weight = delta / length;
-                weights[i].push_back(weight);
-                weights[j].push_back(weight);
+                tets[i].weights.push_back(weight);
+                tets[j].weights.push_back(weight);
             }
         }
-        broken[i].resize(neighborhoods[i].size(),false);
+        tets[i].broken.resize(tets[i].neighborhood.size(),false);
     }
-    broken[particles.size()-1].resize(neighborhoods[particles.size()-1].size(),false);
+    tets[tets.size()-1].broken.resize(tets[tets.size()-1].neighborhood.size(),false);
 }
 
 void PeridynamicSystem::calculateNewPositions() {
     // midway velocity
-    for (uint i = 0; i < particles.size(); i++) {
-        if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/(2*volumes[i]);
+    for (uint i = 0; i < tets.size(); i++) {
+        if (tets[i].fixed) continue;
+        tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
     }
     // new particle positions
-    for (uint i = 0; i < particles.size(); i++) {
+    for (uint i = 0; i < tets.size(); i++) {
         // damping
-        velocities[i] *= 1-damping;
-        if (fixed[i]) continue;
-        particles[i] += velocities[i]*time;
+        tets[i].velocity *= 1-damping;
+        if (tets[i].fixed) continue;
+        tets[i].position += tets[i].velocity*time;
     }
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
         glm::vec4 velocity = glm::vec4(0);
-        for (uint j = 0; j < tetNeighborhoods[i].size(); j++) {
-            velocity += velocities[tetNeighborhoods[i][j]];
+        for (uint j = 0; j < points[i].neighborhood.size(); j++) {
+            velocity += tets[points[i].neighborhood[j]].velocity;
         }
-        velocity /= tetNeighborhoods[i].size();
+        velocity /= points[i].neighborhood.size();
         nodes[i] += velocity*time;
     }
     // calculate forces
     calculateForces();
     // new velocities
-    for (uint i = 0; i < particles.size(); i++) {
-        velocities[i] *= 1-damping;
-        if (fixed[i]) continue;
-        velocities[i] += forces[i]*time/(2*volumes[i]);
+    for (uint i = 0; i < tets.size(); i++) {
+        tets[i].velocity *= 1-damping;
+        if (tets[i].fixed) continue;
+        tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
     }
+    /*
     // remove broken faces
     for (uint i = 0; i < faces.size(); i++) {
         int tet = neighbors[i];
-	if (boundary[i] == 0) std::cout << "found one" << std::endl;
-	for (uint j = 0; j < broken[tet].size(); j++) {
-            if (broken[tet][j]) {
+	for (uint j = 0; j < tets[tet].broken.size(); j++) {
+            if (tets[tet].broken[j]) {
                 faces.erase(faces.begin() + i);
 		boundary.erase(boundary.begin() + i);
 		neighbors.erase(neighbors.begin() + i);
@@ -115,33 +108,34 @@ void PeridynamicSystem::calculateNewPositions() {
 	}
 	i++;
     }
+    */
 }
 
 void PeridynamicSystem::calculateForces() {
     // reset forces
-    forces = vector<glm::vec4>(particles.size(), glm::vec4(0));
+    for (uint i = 0; i < tets.size(); i++) tets[i].force = glm::vec4(0);
 
     // compute relevant values from deformed positions
-    vector<vector<glm::vec4>> vecs(particles.size());
-    vector<vector<float>> lengths(particles.size());
-    vector<vector<glm::vec4>> dirs(particles.size());
-    vector<vector<float>> extensions(particles.size());
-    vector<vector<float>> stretches(particles.size());
+    vector<vector<glm::vec4>> vecs(tets.size());
+    vector<vector<float>> lengths(tets.size());
+    vector<vector<glm::vec4>> dirs(tets.size());
+    vector<vector<float>> extensions(tets.size());
+    vector<vector<float>> stretches(tets.size());
 
-    for (uint i = 0; i < particles.size(); i++) {
-        vecs[i].resize(neighborhoods[i].size());
-        lengths[i].resize(neighborhoods[i].size());
-        dirs[i].resize(neighborhoods[i].size());
-        extensions[i].resize(neighborhoods[i].size());
-        stretches[i].resize(neighborhoods[i].size());
-        glm::vec4 pos = particles[i];
-        for (uint j = 0; j < neighborhoods[i].size(); j++) {
-            if (broken[i][j]) continue;
-            int p2 = neighborhoods[i][j];
-            glm::vec4 vec = particles[p2] - pos;
+    for (uint i = 0; i < tets.size(); i++) {
+        Tet tet1 = tets[i];
+        vecs[i].resize(tet1.neighborhood.size());
+        lengths[i].resize(tet1.neighborhood.size());
+        dirs[i].resize(tet1.neighborhood.size());
+        extensions[i].resize(tet1.neighborhood.size());
+        stretches[i].resize(tet1.neighborhood.size());
+        for (uint j = 0; j < tet1.neighborhood.size(); j++) {
+            if (tet1.broken[j]) continue;
+	    Tet tet2 = tets[tet1.neighborhood[j]];
+            glm::vec4 vec = tet2.position - tet1.position;
             float length = glm::length(vec);
             glm::vec4 dir = vec / length;
-            float init_length = init_lengths[i][j];
+            float init_length = tet1.init_lengths[j];
             float extension = length - init_length;
             float stretch = extension / init_length;
             if (stretch >= .1) {
@@ -151,7 +145,7 @@ void PeridynamicSystem::calculateForces() {
 		    deleteFaces(j);
 		}
 		*/
-                broken[i][j] = true;
+                tets[i].broken[j] = true;
                 continue;
             }
             vecs[i][j] = vec;
@@ -163,34 +157,37 @@ void PeridynamicSystem::calculateForces() {
     }
 
     // compute dilatations
-    vector<float> thetas(particles.size());
+    vector<float> thetas(tets.size());
 
-    for (uint i = 0; i < particles.size(); i++) {
+    for (uint i = 0; i < tets.size(); i++) {
+        Tet tet1 = tets[i];
         float sum = 0.0f;
-        for (uint j = 0; j < neighborhoods[i].size(); j++) {
-            if (broken[i][j]) continue;
-            int k = neighborhoods[i][j];
-            float weight = weights[i][j];
-            glm::vec4 init_vec = init_vecs[i][j];
+        for (uint j = 0; j < tet1.neighborhood.size(); j++) {
+            if (tet1.broken[j]) continue;
+            int k = tet1.neighborhood[j];
+            float weight = tet1.weights[j];
+            glm::vec4 init_vec = tet1.init_vecs[j];
             glm::vec4 dir = dirs[i][j];
             float stretch = stretches[i][j];
-            sum += weight * stretch * glm::dot(dir,init_vec) * volumes[k];
+            sum += weight * stretch * glm::dot(dir,init_vec) * tets[k].volume;
         }
         float theta = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * sum;
         thetas[i] = theta;
     }
 
     //compute forces
-    for (uint i = 0; i < particles.size(); i++) { 
+    for (uint i = 0; i < tets.size(); i++) { 
         int p1 = i;
+        Tet tet1 = tets[p1];
         float theta1 = thetas[p1];
-        for (uint j = 0; j < neighborhoods[i].size(); j++) {
-            if (broken[i][j]) continue;
-            int p2 = neighborhoods[i][j];
+        for (uint j = 0; j < tet1.neighborhood.size(); j++) {
+            if (tet1.broken[j]) continue;
+            int p2 = tet1.neighborhood[j];
             if (p2 < p1) continue;
-            float weight = weights[i][j];
+	    Tet tet2 = tets[p2];
+            float weight = tet1.weights[j];
             glm::vec4 dir = dirs[i][j];
-            glm::vec4 init_dir = init_dirs[i][j];
+            glm::vec4 init_dir = tet1.init_dirs[j];
             float dot = glm::dot(dir,init_dir);
             // Tp2p1
             float A_dil = 4.0f * weight * a * dot * theta1;
@@ -204,12 +201,12 @@ void PeridynamicSystem::calculateForces() {
             A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta2);
             A = A_dil + A_dev;
             glm::vec4 Tp1p2 = 0.5f * A * -dir;
-            forces[p1] += Tp2p1 * volumes[p2];
-            forces[p1] -= Tp1p2 * volumes[p2];
-            forces[p2] += Tp1p2 * volumes[p1];
-            forces[p2] -= Tp2p1 * volumes[p1];
+            tets[p1].force += Tp2p1 * tet2.volume;
+            tets[p1].force -= Tp1p2 * tet2.volume;
+            tets[p2].force += Tp1p2 * tet1.volume;
+            tets[p2].force -= Tp2p1 * tet1.volume;
         }
-        forces[p1] += glm::vec4(0,-1,0,0) * volumes[i];
+        tets[p1].force += glm::vec4(0,-1,0,0) * tet1.volume;
     }
 
     /*
@@ -229,7 +226,7 @@ void PeridynamicSystem::calculateForces() {
     }
     cout << "pressure " << glm::to_string(pressure) << endl;
     glm::vec3 angular = glm::vec3(0);
-    for (uint i = 0; i < particles.size(); i++) {
+    for (uint i = 0; i < tets.size(); i++) {
 	angular += glm::cross(glm::vec3(particles[i])-glm::vec3(0,3,0),glm::vec3(forces[i]));
     }
     cout << "angular " << glm::to_string(angular) << endl;

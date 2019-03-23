@@ -191,9 +191,6 @@ int main(int argc, char* argv[])
     auto int_binder = [](int loc, const void* data) {
         glUniform1iv(loc, 1, (const GLint*)data);
     };
-    auto block_delta_binder = [&ps](int loc, const void* data) {
-        glUniform4fv(loc, ps->particles.size(), (const GLfloat*)data);
-    };
 
     /*
      * The lambda functions below are used to retrieve data
@@ -225,9 +222,6 @@ int main(int argc, char* argv[])
         else
             return &non_transparet;
     };
-    auto block_delta_data = [&ps]() -> const void* {
-        return ps->particles.data();
-    };
     auto box_delta_data = []() -> const void* {
         static const float box_delta = 10.0f;
         return &box_delta;
@@ -243,7 +237,6 @@ int main(int argc, char* argv[])
     ShaderUniform std_proj = { "projection", matrix_binder, std_proj_data };
     ShaderUniform std_light = { "light_position", vector_binder, std_light_data };
     ShaderUniform object_alpha = { "alpha", float_binder, alpha_data };
-    ShaderUniform block_delta = { "block_delta", block_delta_binder, block_delta_data };
     ShaderUniform box_delta = { "box_delta", float_binder, box_delta_data };
     // FIXME: define more ShaderUniforms for RenderPass if you want to use it.
     //        Otherwise, do whatever you like here

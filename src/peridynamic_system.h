@@ -7,12 +7,37 @@
 
 using namespace std;
 
+class Point {
+    public:
+        Point() {};
+        vector<int> neighborhood;
+    private:
+};
+
+class Tet {
+    public:
+        Tet(bool fixed, glm::vec4 pos, float vol) : fixed(fixed), position(pos), volume(vol), velocity(glm::vec4(0)), force(glm::vec4(0)) {};
+	Tet() {};
+	bool fixed;
+        vector<int> neighborhood; 
+        vector<bool> broken;
+        vector<glm::vec4> init_vecs;
+        vector<float> init_lengths;
+        vector<glm::vec4> init_dirs;
+        vector<float> weights;
+        float volume;
+	glm::vec4 position;
+        glm::vec4 velocity;
+	glm::vec4 force;
+    private:
+};
+
 class PeridynamicSystem {
     public:
         PeridynamicSystem(
                 vector<glm::vec4> nodes,
                 vector<bool> fixedNodes,
-                vector<vector<int>> tets,
+                vector<vector<int>> eles,
                 vector<glm::uvec3> faces,
                 vector<int> boundary,
                 vector<int> neighbors
@@ -20,23 +45,13 @@ class PeridynamicSystem {
         PeridynamicSystem() {};
         void calculateNewPositions();
         vector<glm::vec4> nodes;
-        vector<glm::vec4> particles;
         vector<glm::uvec3> faces;
         vector<int> boundary;
         vector<int> neighbors;
     private:
         void calculateForces();
-        vector<bool> fixed;
-        vector<vector<int>> tetNeighborhoods;
-        vector<vector<int>> neighborhoods;
-        vector<vector<bool>> broken;
-        vector<vector<glm::vec4>> init_vecs;
-        vector<vector<float>> init_lengths;
-        vector<vector<glm::vec4>> init_dirs;
-        vector<vector<float>> weights;
-        vector<float> volumes;
-        vector<glm::vec4> velocities;
-        vector<glm::vec4> forces;
+	vector<Tet> tets;
+	vector<Point> points;
         TicTocTimer t = tic();
         float time = 0.015f;
         float delta = 0.6f;
