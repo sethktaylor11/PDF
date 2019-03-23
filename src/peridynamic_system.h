@@ -24,8 +24,9 @@ class Triangle {
 
 class Tet {
     public:
-        Tet(bool fixed, glm::vec4 pos, float vol) : fixed(fixed), position(pos), volume(vol), velocity(glm::vec4(0)), force(glm::vec4(0)) {};
-	Tet() {};
+        Tet(vector<int> roommates, bool fixed, glm::vec4 pos, float vol);
+        Tet() {};
+	vector<int> roommates;
 	bool fixed;
         vector<int> neighbors; 
         vector<bool> broken;
@@ -48,7 +49,8 @@ class PeridynamicSystem {
                 vector<vector<int>> eles,
                 vector<glm::uvec3> faces,
                 vector<int> boundary,
-                vector<int> neighbors
+                vector<int> neighbors,
+                vector<vector<int>> roommates
                 );
         PeridynamicSystem() {};
         void calculateNewPositions();

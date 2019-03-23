@@ -4,6 +4,16 @@
 #include <glm/gtx/string_cast.hpp>
 
 using namespace std;
+        
+Tet::Tet(
+        vector<int> roommates,
+        bool fixed,
+        glm::vec4 pos,
+        float vol
+        ) : roommates(roommates), fixed(fixed), position(pos),
+    volume(vol), velocity(glm::vec4(0)), force(glm::vec4(0))
+{
+}
 
 PeridynamicSystem::PeridynamicSystem(
         vector<glm::vec4> nodes,
@@ -11,11 +21,10 @@ PeridynamicSystem::PeridynamicSystem(
         vector<vector<int>> eles,
         vector<glm::uvec3> faces,
         vector<int> boundary,
-        vector<int> neighbors
-        ) : nodes(nodes), faces(faces),
-    tets(eles.size(), Tet()),
-    triangles(faces.size(), Triangle()),
-    points(nodes.size(), Point())
+        vector<int> neighbors,
+	vector<vector<int>> roommates
+        ) : nodes(nodes), faces(faces), tets(eles.size(), Tet()),
+    triangles(faces.size(), Triangle()), points(nodes.size(), Point())
 {
     for (uint i = 0; i < faces.size(); i++) {
         triangles[i].boundary = boundary[i];
@@ -40,7 +49,7 @@ PeridynamicSystem::PeridynamicSystem(
         float volume = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
 	bool fixed = false;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
-	tets[i] = Tet(fixed, position, volume);
+	tets[i] = Tet(roommates[i], fixed, position, volume);
     }
 
     for (uint i = 0; i < tets.size()-1; i++) {

@@ -83,7 +83,7 @@ GLFWwindow* init_glefw()
 
 void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
     ifstream nodesFile;
-    nodesFile.open("box.1.node");
+    nodesFile.open("box.2.node");
     int nP, d, nAN, nBN;
     nodesFile >> nP >> d >> nAN >> nBN;
     nodes.resize(nP);
@@ -99,7 +99,7 @@ void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
 
 void readFaces(vector<glm::uvec3>& faces, vector<int>& boundary, vector<int>& neighbors) {
     ifstream facesFile;
-    facesFile.open("box.1.face");
+    facesFile.open("box.2.face");
     int nF, nBF;
     facesFile >> nF >> nBF;
     faces.resize(nF);
@@ -116,7 +116,7 @@ void readFaces(vector<glm::uvec3>& faces, vector<int>& boundary, vector<int>& ne
 
 void readTets(vector<vector<int>>& tets) {
     ifstream tetsFile;
-    tetsFile.open("box.1.ele");
+    tetsFile.open("box.2.ele");
     int nT, nN, nAT;
     tetsFile >> nT >> nN >> nAT;
     tets.resize(nT);
@@ -129,6 +129,24 @@ void readTets(vector<vector<int>>& tets) {
         tet[2] = C;
         tet[3] = D;
         tets[t] = tet;
+    }
+}
+
+void readNeighbors(vector<vector<int>>& neighbors) {
+    ifstream neighborsFile;
+    neighborsFile.open("box.2.neigh");
+    int nT, nN;
+    neighborsFile >> nT >> nN;
+    neighbors.resize(nT);
+    for (int i = 0; i < nT; i++) {
+        int t, A, B, C, D;
+        neighborsFile >> t >> A >> B >> C >> D;
+        vector<int> tets;
+	if (A != -1) tets.push_back(A);
+	if (B != -1) tets.push_back(B);
+	if (C != -1) tets.push_back(C);
+	if (D != -1) tets.push_back(D);
+        neighbors[t] = tets;
     }
 }
 
@@ -154,15 +172,20 @@ int main(int argc, char* argv[])
 
     vector<glm::uvec3> faces;
     vector<int> boundary;
-    vector<int> neighbors;
-    readFaces(faces, boundary, neighbors);
+    vector<int> faceNeighbors;
+    readFaces(faces, boundary, faceNeighbors);
 
     // Read Tets
 
     vector<vector<int>> tets;
     readTets(tets);
 
-    PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets,faces,boundary,neighbors);
+    // Read Neighbors
+    
+    vector<vector<int>> neighbors;
+    readNeighbors(neighbors);
+
+    PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets,faces,boundary,faceNeighbors,neighbors);
 
     glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
     MatrixPointers mats; // Define MatrixPointers here for lambda to capture
