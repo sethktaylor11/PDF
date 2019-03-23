@@ -13,19 +13,25 @@ PeridynamicSystem::PeridynamicSystem(
         vector<int> boundary,
         vector<int> neighbors
         ) : nodes(nodes), faces(faces),
-    boundary(boundary), neighbors(neighbors),
-    tets(eles.size(), Tet()), points(nodes.size(), Point())
+    tets(eles.size(), Tet()),
+    triangles(faces.size(), Triangle()),
+    points(nodes.size(), Point())
 {
+    for (uint i = 0; i < faces.size(); i++) {
+        triangles[i].boundary = boundary[i];
+	triangles[i].neighbors.push_back(neighbors[i]);
+    }
+
     for (uint i = 0; i < eles.size(); i++) {
         vector<int> ele = eles[i];
         int A = ele[0];
         int B = ele[1];
         int C = ele[2];
         int D = ele[3];
-	points[A].neighborhood.push_back(i);
-	points[B].neighborhood.push_back(i);
-	points[C].neighborhood.push_back(i);
-	points[D].neighborhood.push_back(i);
+	points[A].neighbors.push_back(i);
+	points[B].neighbors.push_back(i);
+	points[C].neighbors.push_back(i);
+	points[D].neighbors.push_back(i);
         glm::vec4 a = nodes[A];
         glm::vec4 b = nodes[B];
         glm::vec4 c = nodes[C];
@@ -43,8 +49,8 @@ PeridynamicSystem::PeridynamicSystem(
             glm::vec4 vec = tets[j].position - pos;
             float length = glm::length(vec);
             if (length < delta) {
-                tets[i].neighborhood.push_back(j);
-                tets[j].neighborhood.push_back(i);
+                tets[i].neighbors.push_back(j);
+                tets[j].neighbors.push_back(i);
                 tets[i].init_vecs.push_back(vec);
                 tets[j].init_vecs.push_back(-vec);
                 tets[i].init_lengths.push_back(length);
@@ -57,9 +63,9 @@ PeridynamicSystem::PeridynamicSystem(
                 tets[j].weights.push_back(weight);
             }
         }
-        tets[i].broken.resize(tets[i].neighborhood.size(),false);
+        tets[i].broken.resize(tets[i].neighbors.size(),false);
     }
-    tets[tets.size()-1].broken.resize(tets[tets.size()-1].neighborhood.size(),false);
+    tets[tets.size()-1].broken.resize(tets[tets.size()-1].neighbors.size(),false);
 }
 
 void PeridynamicSystem::calculateNewPositions() {
@@ -79,10 +85,10 @@ void PeridynamicSystem::calculateNewPositions() {
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
         glm::vec4 velocity = glm::vec4(0);
-        for (uint j = 0; j < points[i].neighborhood.size(); j++) {
-            velocity += tets[points[i].neighborhood[j]].velocity;
+        for (uint j = 0; j < points[i].neighbors.size(); j++) {
+            velocity += tets[points[i].neighbors[j]].velocity;
         }
-        velocity /= points[i].neighborhood.size();
+        velocity /= points[i].neighbors.size();
         nodes[i] += velocity*time;
     }
     // calculate forces
@@ -96,12 +102,11 @@ void PeridynamicSystem::calculateNewPositions() {
     /*
     // remove broken faces
     for (uint i = 0; i < faces.size(); i++) {
-        int tet = neighbors[i];
+        int tet = triangles[i].neighbors[0];
 	for (uint j = 0; j < tets[tet].broken.size(); j++) {
             if (tets[tet].broken[j]) {
                 faces.erase(faces.begin() + i);
-		boundary.erase(boundary.begin() + i);
-		neighbors.erase(neighbors.begin() + i);
+		triangles.erase(triangles.begin() + i);
 		i--;
 		continue;
 	    }
@@ -123,14 +128,14 @@ void PeridynamicSystem::calculateForces() {
     vector<vector<float>> stretches(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
-        vecs[i].resize(tets[i].neighborhood.size());
-        lengths[i].resize(tets[i].neighborhood.size());
-        dirs[i].resize(tets[i].neighborhood.size());
-        extensions[i].resize(tets[i].neighborhood.size());
-        stretches[i].resize(tets[i].neighborhood.size());
-        for (uint j = 0; j < tets[i].neighborhood.size(); j++) {
+        vecs[i].resize(tets[i].neighbors.size());
+        lengths[i].resize(tets[i].neighbors.size());
+        dirs[i].resize(tets[i].neighbors.size());
+        extensions[i].resize(tets[i].neighbors.size());
+        stretches[i].resize(tets[i].neighbors.size());
+        for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
-            glm::vec4 vec = tets[tets[i].neighborhood[j]].position - tets[i].position;
+            glm::vec4 vec = tets[tets[i].neighbors[j]].position - tets[i].position;
             float length = glm::length(vec);
             glm::vec4 dir = vec / length;
             float init_length = tets[i].init_lengths[j];
@@ -159,9 +164,9 @@ void PeridynamicSystem::calculateForces() {
 
     for (uint i = 0; i < tets.size(); i++) {
         float sum = 0.0f;
-        for (uint j = 0; j < tets[i].neighborhood.size(); j++) {
+        for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
-            int k = tets[i].neighborhood[j];
+            int k = tets[i].neighbors[j];
             float weight = tets[i].weights[j];
             glm::vec4 init_vec = tets[i].init_vecs[j];
             glm::vec4 dir = dirs[i][j];
@@ -176,9 +181,9 @@ void PeridynamicSystem::calculateForces() {
     for (uint i = 0; i < tets.size(); i++) { 
         int p1 = i;
         float theta1 = thetas[p1];
-        for (uint j = 0; j < tets[p1].neighborhood.size(); j++) {
+        for (uint j = 0; j < tets[p1].neighbors.size(); j++) {
             if (tets[p1].broken[j]) continue;
-            int p2 = tets[p1].neighborhood[j];
+            int p2 = tets[p1].neighbors[j];
             if (p2 < p1) continue;
             float weight = tets[p1].weights[j];
             glm::vec4 dir = dirs[i][j];

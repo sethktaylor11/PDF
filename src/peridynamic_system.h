@@ -10,7 +10,15 @@ using namespace std;
 class Point {
     public:
         Point() {};
-        vector<int> neighborhood;
+        vector<int> neighbors;
+    private:
+};
+
+class Triangle {
+    public:
+        Triangle() {};
+        int boundary;
+        vector<int> neighbors;
     private:
 };
 
@@ -19,7 +27,7 @@ class Tet {
         Tet(bool fixed, glm::vec4 pos, float vol) : fixed(fixed), position(pos), volume(vol), velocity(glm::vec4(0)), force(glm::vec4(0)) {};
 	Tet() {};
 	bool fixed;
-        vector<int> neighborhood; 
+        vector<int> neighbors; 
         vector<bool> broken;
         vector<glm::vec4> init_vecs;
         vector<float> init_lengths;
@@ -46,11 +54,10 @@ class PeridynamicSystem {
         void calculateNewPositions();
         vector<glm::vec4> nodes;
         vector<glm::uvec3> faces;
-        vector<int> boundary;
-        vector<int> neighbors;
     private:
         void calculateForces();
 	vector<Tet> tets;
+	vector<Triangle> triangles;
 	vector<Point> points;
         TicTocTimer t = tic();
         float time = 0.015f;
