@@ -4,15 +4,57 @@
 #include <glm/gtx/string_cast.hpp>
 
 using namespace std;
-        
-Tet::Tet(
-        vector<int> roommates,
-        bool fixed,
-        glm::vec4 pos,
-        float vol
-        ) : roommates(roommates), fixed(fixed), position(pos),
-    volume(vol), velocity(glm::vec4(0)), force(glm::vec4(0))
+
+void Point::removeNeighbor(int tet) {
+    for (uint i = 0; i < neighbors.size(); i++) {
+        if (tet == neighbors[i]) {
+            neighbors.erase(neighbors.begin() + i);
+	    break;
+	}
+    }
+}
+
+Triangle::Triangle(
+	vector<int> points,
+        int boundary,
+	vector<int> neighbors
+	) : points(points), boundary(boundary), neighbors(neighbors)
 {
+}
+
+bool Triangle::hasNeighbor(int tet) {
+    return tet == neighbors[0] || tet == neighbors[1];
+}
+
+void Triangle::removeNeighbor(int tet) {
+    for (uint i = 0; i < neighbors.size(); i++) {
+        if (tet == neighbors[i]) {
+            neighbors.erase(neighbors.begin() + i);
+	    break;
+	}
+    }
+}
+
+Tet::Tet(
+        glm::vec4 pos,
+        float vol,
+        bool fixed,
+        vector<int> roommates
+        ) : position(pos), volume(vol), fixed(fixed),
+    roommates(roommates), velocity(glm::vec4(0)), force(glm::vec4(0))
+{
+}
+
+bool Tet::isRoommate(int tet) {
+    return tet == roommates[0] || tet == roommates[1]
+        || tet == roommates[2] || tet == roommates[3];
+}
+
+void Tet::removeRoommate(int tet) {
+    if (roommates[0] == tet) roommates[0] = -1;
+    if (roommates[1] == tet) roommates[1] = -1;
+    if (roommates[2] == tet) roommates[2] = -1;
+    if (roommates[3] == tet) roommates[3] = -1;
 }
 
 PeridynamicSystem::PeridynamicSystem(
@@ -21,16 +63,12 @@ PeridynamicSystem::PeridynamicSystem(
         vector<vector<int>> eles,
         vector<glm::uvec3> faces,
         vector<int> boundary,
-        vector<int> neighbors,
+        vector<vector<int>> tris,
+        vector<vector<int>> neighbors,
 	vector<vector<int>> roommates
         ) : nodes(nodes), faces(faces), tets(eles.size(), Tet()),
-    triangles(faces.size(), Triangle()), points(nodes.size(), Point())
+    triangles(tris.size(), Triangle()), points(nodes.size(), Point())
 {
-    for (uint i = 0; i < faces.size(); i++) {
-        triangles[i].boundary = boundary[i];
-	triangles[i].neighbors.push_back(neighbors[i]);
-    }
-
     for (uint i = 0; i < eles.size(); i++) {
         vector<int> ele = eles[i];
         int A = ele[0];
@@ -49,7 +87,14 @@ PeridynamicSystem::PeridynamicSystem(
         float volume = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
 	bool fixed = false;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
-	tets[i] = Tet(roommates[i], fixed, position, volume);
+	tets[i] = Tet(position, volume, fixed, roommates[i]);
+    }
+
+    for (uint i = 0; i < tris.size(); i++) {
+        triangles[i] = Triangle(tris[i], boundary[i], neighbors[i]);
+        tets[neighbors[i][0]].triangles.push_back(i);
+	if (neighbors[i][1] != -1)
+            tets[neighbors[i][1]].triangles.push_back(i);
     }
 
     for (uint i = 0; i < tets.size()-1; i++) {
@@ -125,6 +170,72 @@ void PeridynamicSystem::calculateNewPositions() {
     */
 }
 
+void PeridynamicSystem::split(int tet1, int tet2) {
+    // remove from roommates
+    tets[tet1].removeRoommate(tet2);
+    tets[tet2].removeRoommate(tet1);
+
+    // find shared triangle
+    int tri = -1;
+    if (triangles[tets[tet1].triangles[0]].hasNeighbor(tet2))
+        tri = tets[tet1].triangles[0];
+    if (triangles[tets[tet1].triangles[1]].hasNeighbor(tet2))
+        tri = tets[tet1].triangles[1];
+    if (triangles[tets[tet1].triangles[2]].hasNeighbor(tet2))
+        tri = tets[tet1].triangles[2];
+    if (triangles[tets[tet1].triangles[3]].hasNeighbor(tet2))
+        tri = tets[tet1].triangles[3];
+
+    // update triangle in tet2
+    if (tri == tets[tet2].triangles[0])
+        tets[tet2].triangles[0] = triangles.size();
+    if (tri == tets[tet2].triangles[1])
+        tets[tet2].triangles[1] = triangles.size();
+    if (tri == tets[tet2].triangles[2])
+        tets[tet2].triangles[2] = triangles.size();
+    if (tri == tets[tet2].triangles[3])
+        tets[tet2].triangles[3] = triangles.size();
+
+    // create duplicate points
+    Point p1 = points[triangles[tri].points[0]];
+    Point p2 = points[triangles[tri].points[1]];
+    Point p3 = points[triangles[tri].points[2]];
+
+    // remove tet1 from duplicate points
+    p1.removeNeighbor(tet1);
+    p2.removeNeighbor(tet1);
+    p3.removeNeighbor(tet1);
+
+    // create duplicate triangle
+    Triangle t = triangles[tri];
+
+    // correct duplicate triangle point indices
+    vector<int> p(3);
+    p[0] = points.size();
+    p[1] = points.size() + 1;
+    p[2] = points.size() + 2;
+    t.points = p;
+
+    // remove tet1 from duplicate triangle
+    t.removeNeighbor(tet1);
+
+    // add in duplicate points
+    points.push_back(p1);
+    points.push_back(p2);
+    points.push_back(p3);
+
+    // add in duplicate triangle
+    triangles.push_back(t);
+
+    // remove tet2 from original points
+    points[triangles[tri].points[0]].removeNeighbor(tet2);
+    points[triangles[tri].points[1]].removeNeighbor(tet2);
+    points[triangles[tri].points[2]].removeNeighbor(tet2);
+
+    // remove tet2 from original triangle
+    triangles[tri].removeNeighbor(tet2);
+}
+
 void PeridynamicSystem::calculateForces() {
     // reset forces
     for (uint i = 0; i < tets.size(); i++) tets[i].force = glm::vec4(0);
@@ -151,12 +262,9 @@ void PeridynamicSystem::calculateForces() {
             float extension = length - init_length;
             float stretch = extension / init_length;
             if (stretch >= .1) {
-		/*
-		if (neighbors(i,j)) {
-                    deleteFaces(i);
-		    deleteFaces(j);
+	        if (tets[i].isRoommate(tets[i].neighbors[j])) {
+                    split(i,tets[i].neighbors[j]);
 		}
-		*/
                 tets[i].broken[j] = true;
                 continue;
             }
