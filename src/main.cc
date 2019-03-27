@@ -97,7 +97,7 @@ void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
     }
 }
 
-void readFaces(vector<glm::uvec3>& faces, vector<int>& boundary, vector<vector<int>>& triangles, vector<vector<int>>& neighbors) {
+void readFaces(vector<int>& boundary, vector<vector<int>>& triangles, vector<vector<int>>& neighbors) {
     ifstream facesFile;
     facesFile.open("box.2.face");
     int nF, nBF;
@@ -108,7 +108,6 @@ void readFaces(vector<glm::uvec3>& faces, vector<int>& boundary, vector<vector<i
     for (int i = 0; i < nF; i++) {
         int f, A, B, C, b, n1, n2;
         facesFile >> f >> A >> B >> C >> b >> n1 >> n2;
-	if (b != 0) faces.push_back(glm::uvec3(A,C,B));
         boundary[f] = b;
 	triangles[f][0] = A;
 	triangles[f][1] = B;
@@ -174,11 +173,10 @@ int main(int argc, char* argv[])
 
     // Read Faces
 
-    vector<glm::uvec3> faces;
     vector<int> boundary;
     vector<vector<int>> triangles;
     vector<vector<int>> faceNeighbors;
-    readFaces(faces, boundary, triangles, faceNeighbors);
+    readFaces(boundary, triangles, faceNeighbors);
 
     // Read Tets
 
@@ -190,7 +188,7 @@ int main(int argc, char* argv[])
     vector<vector<int>> neighbors;
     readNeighbors(neighbors);
 
-    PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets,faces,boundary,triangles,faceNeighbors,neighbors);
+    PeridynamicSystem* ps = new PeridynamicSystem(nodes,fixedNodes,tets,boundary,triangles,faceNeighbors,neighbors);
 
     glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
     MatrixPointers mats; // Define MatrixPointers here for lambda to capture
@@ -280,14 +278,9 @@ int main(int argc, char* argv[])
             { "fragment_color" }
             );
 
-    vector<int> vec;
-    for(uint i = 0; i < nodes.size(); i++) {
-        vec.push_back(i);
-    }
-
     RenderDataInput box_pass_input;
     box_pass_input.assign(0, "vertex_position", nodes.data(), nodes.size(), 4, GL_FLOAT);
-    box_pass_input.assignIndex(faces.data(), faces.size(), 3);
+    box_pass_input.assignIndex(ps->faces.data(), ps->faces.size(), 3);
     RenderPass box_pass(-1, box_pass_input,
             { box_vertex_shader, box_geometry_shader, box_fragment_shader},
             { std_model, std_view, std_proj,
@@ -327,7 +320,7 @@ int main(int argc, char* argv[])
 
         box_pass.setup();
         CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES,
-                    faces.size() * 3,
+                    ps->faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
 
         // Poll and swap.
