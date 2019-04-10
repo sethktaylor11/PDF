@@ -35,8 +35,6 @@ class Point {
 	int node;
 
 	// Neighbors
-	bool hasNeighbor(int tet);
-	void removeNeighbor(int tet);
         vector<int> neighbors;
 
 	// Tet
@@ -108,9 +106,16 @@ class Tet {
         vector<glm::vec4> init_dirs;
         vector<float> weights;
 
+	// Next-door Neighbors
+	bool hasNextDoorNeighbor(int tet);
+	vector<int> nextDoorNeighbors;
+
+	// Housemates
+	bool hasHousemate(int tet);
+	vector<int> housemates;
+
 	// Roommates
 	bool hasRoommate(int tet);
-	void removeRoommate(int tet);
 	vector<int> roommates;
     private:
 };
@@ -142,6 +147,10 @@ class PeridynamicSystem {
         // Tets
 	int mapPoint(int tet, int p);
         vector<int> mapTriangle(int tet, vector<int> tri);
+	void splitNextDoorNeighbors(int tet1, int tet2);
+	void splitHousemates(int tet1, int tet2);
+	void splitRoommates(int tet1, int tet2);
+	int findSharedTriangle(int tet1, int tet2);
 	vector<Tet> tets;
 
 	// Triangles
@@ -153,6 +162,7 @@ class PeridynamicSystem {
         // Rendered
 	
 	// Nodes
+        bool hasNeighbor(int node, int tet);
         vector<Node> Nodes;
 
         TicTocTimer t = tic();

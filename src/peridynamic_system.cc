@@ -9,24 +9,6 @@ using namespace std;
 
 // Tets
 
-// Point
-
-bool Point::hasNeighbor(int tet) {
-    for (uint i = 0; i < neighbors.size(); i++) {
-        if (tet == neighbors[i]) return true;
-    }
-    return false;
-}
-
-void Point::removeNeighbor(int tet) {
-    for (uint i = 0; i < neighbors.size(); i++) {
-        if (tet == neighbors[i]) {
-            neighbors.erase(neighbors.begin() + i);
-	    break;
-	}
-    }
-}
-
 // Triangle
 
 Triangle::Triangle(
@@ -57,16 +39,23 @@ Tet::Tet(
     points[3] = point_index+3;
 }
 
+bool Tet::hasNextDoorNeighbor(int tet) {
+    for (uint i = 0; i < nextDoorNeighbors.size(); i++) {
+        if (tet == nextDoorNeighbors[i]) return true;
+    }
+    return false;
+}
+
+bool Tet::hasHousemate(int tet) {
+    for (uint i = 0; i < housemates.size(); i++) {
+        if (tet == housemates[i]) return true;
+    }
+    return false;
+}
+
 bool Tet::hasRoommate(int tet) {
     return tet == roommates[0] || tet == roommates[1]
         || tet == roommates[2] || tet == roommates[3];
-}
-
-void Tet::removeRoommate(int tet) {
-    if (roommates[0] == tet) roommates[0] = -1;
-    else if (roommates[1] == tet) roommates[1] = -1;
-    else if (roommates[2] == tet) roommates[2] = -1;
-    else roommates[3] = -1;
 }
 
 // PeridynamicSystem
@@ -115,6 +104,31 @@ PeridynamicSystem::PeridynamicSystem(
 		    points[p].neighbors = Nodes[i].neighbors;
 		    points[p].neighbors.erase(points[p].neighbors.begin()+j);
 	    }
+    }
+
+    for (uint i = 0; i < Nodes.size(); i++) {
+        for (uint j = 0; j < Nodes[i].neighbors.size()-1; j++) {
+            int t1 = points[Nodes[i].neighbors[j]].tet;
+            for (uint k = j + 1; k < Nodes[i].neighbors.size(); k++) {
+                int t2 = points[Nodes[i].neighbors[k]].tet;
+		if (tets[t1].hasRoommate(t2)) continue;
+		if (tets[t1].hasHousemate(t2)) continue;
+		uint n1 = points[tets[t1].points[0]].node;
+		uint n2 = points[tets[t1].points[1]].node;
+		uint n3 = points[tets[t1].points[2]].node;
+		uint n4 = points[tets[t1].points[3]].node;
+		if ((i != n1 && hasNeighbor(n1, t2))
+		            || (i != n2 && hasNeighbor(n2, t2))
+			    || (i != n3 && hasNeighbor(n3, t2))
+			    || (i != n4 && hasNeighbor(n4, t2))) {
+                    tets[t1].housemates.push_back(t2);
+		    tets[t2].housemates.push_back(t1);
+		    continue;
+		}
+                tets[t1].nextDoorNeighbors.push_back(t2);
+		tets[t2].nextDoorNeighbors.push_back(t1);
+	    }
+	}
     }
 
     for (uint i = 0; i < tris.size(); i++) {
@@ -243,14 +257,12 @@ void PeridynamicSystem::calculateForces() {
             float extension = length - init_length;
             float stretch = extension / init_length;
             if (stretch >= .1) {
-		    /*
 	        if (tets[i].hasNextDoorNeighbor(tets[i].neighbors[j]))
                     splitNextDoorNeighbors(i,tets[i].neighbors[j]);
 		if (tets[i].hasHousemate(tets[i].neighbors[j]))
                     splitHousemates(i,tets[i].neighbors[j]);
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
                     splitRoommates(i,tets[i].neighbors[j]);
-		    */
                 tets[i].broken[j] = true;
                 continue;
             }
@@ -351,4 +363,20 @@ vector<int> PeridynamicSystem::mapTriangle(int tet, vector<int> tri) {
     tri[1] = mapPoint(tet, tri[1]);
     tri[2] = mapPoint(tet, tri[2]);
     return tri;
+}
+
+void PeridynamicSystem::splitNextDoorNeighbors(int tet1, int tet2) {
+}
+
+void PeridynamicSystem::splitHousemates(int tet1, int tet2) {
+}
+
+void PeridynamicSystem::splitRoommates(int tet1, int tet2) {
+}
+
+bool PeridynamicSystem::hasNeighbor(int node, int tet) {
+    for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
+        if (points[Nodes[node].neighbors[i]].tet == tet) return true;
+    }
+    return false;
 }
