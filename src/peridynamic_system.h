@@ -108,6 +108,7 @@ class Tet {
 
 	// Next-door Neighbors
 	bool hasNextDoorNeighbor(int tet);
+	void removeNextDoorNeighbor(int tet);
 	vector<int> nextDoorNeighbors;
 
 	// Housemates
@@ -147,6 +148,7 @@ class PeridynamicSystem {
         // Tets
 	int mapPoint(int tet, int p);
         vector<int> mapTriangle(int tet, vector<int> tri);
+	void updateFaces(int tet);
 	void splitNextDoorNeighbors(int tet1, int tet2);
 	void splitHousemates(int tet1, int tet2);
 	void splitRoommates(int tet1, int tet2);

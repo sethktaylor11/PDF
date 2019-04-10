@@ -46,6 +46,15 @@ bool Tet::hasNextDoorNeighbor(int tet) {
     return false;
 }
 
+void Tet::removeNextDoorNeighbor(int tet) {
+    for (uint i = 0; i < nextDoorNeighbors.size(); i++) {
+        if (tet == nextDoorNeighbors[i]) {
+            nextDoorNeighbors.erase(nextDoorNeighbors.begin() + i);
+	    break;
+	}
+    }
+}
+
 bool Tet::hasHousemate(int tet) {
     for (uint i = 0; i < housemates.size(); i++) {
         if (tet == housemates[i]) return true;
@@ -113,6 +122,7 @@ PeridynamicSystem::PeridynamicSystem(
                 int t2 = points[Nodes[i].neighbors[k]].tet;
 		if (tets[t1].hasRoommate(t2)) continue;
 		if (tets[t1].hasHousemate(t2)) continue;
+		if (tets[t1].hasNextDoorNeighbor(t2)) continue;
 		uint n1 = points[tets[t1].points[0]].node;
 		uint n2 = points[tets[t1].points[1]].node;
 		uint n3 = points[tets[t1].points[2]].node;
@@ -365,7 +375,35 @@ vector<int> PeridynamicSystem::mapTriangle(int tet, vector<int> tri) {
     return tri;
 }
 
+void PeridynamicSystem::updateFaces(int tet) {
+    int t1 = tets[tet].triangles[0];
+    int t2 = tets[tet].triangles[1];
+    int t3 = tets[tet].triangles[2];
+    int t4 = tets[tet].triangles[3];
+
+    if (triangles[t1].face != -1) 
+        faces[triangles[t1].face] = glm::uvec3(points[triangles[t1].points[0]].node,
+                points[triangles[t1].points[2]].node, points[triangles[t1].points[1]].node);
+
+    if (triangles[t2].face != -1) 
+        faces[triangles[t2].face] = glm::uvec3(points[triangles[t2].points[0]].node,
+                points[triangles[t2].points[2]].node, points[triangles[t2].points[1]].node);
+
+    if (triangles[t3].face != -1) 
+        faces[triangles[t3].face] = glm::uvec3(points[triangles[t3].points[0]].node,
+                points[triangles[t3].points[2]].node, points[triangles[t3].points[1]].node);
+
+    if (triangles[t4].face != -1) 
+        faces[triangles[t4].face] = glm::uvec3(points[triangles[t4].points[0]].node,
+                points[triangles[t4].points[2]].node, points[triangles[t4].points[1]].node);
+}
+
 void PeridynamicSystem::splitNextDoorNeighbors(int tet1, int tet2) {
+    // remove from next-door neighbors
+    //tetRemoveNeighbor(tet1, tet2);
+
+    // update faces in tet2 triangles
+    updateFaces(tet2);
 }
 
 void PeridynamicSystem::splitHousemates(int tet1, int tet2) {
