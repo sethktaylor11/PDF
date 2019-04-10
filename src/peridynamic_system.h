@@ -7,6 +7,23 @@
 
 using namespace std;
 
+// Rendered
+
+// Nodes
+
+class Node {
+    public:
+        // Constructor
+        Node() {};
+
+	// Neighbors
+	vector<int> neighbors;
+
+    private:
+};
+
+// Tets
+
 // Point
 
 class Point {
@@ -14,10 +31,16 @@ class Point {
         // Constructor
         Point() {};
 
+	// Node
+	int node;
+
 	// Neighbors
 	bool hasNeighbor(int tet);
 	void removeNeighbor(int tet);
         vector<int> neighbors;
+
+	// Tet
+	int tet;
     private:
 };
 
@@ -30,7 +53,8 @@ class Triangle {
                 int boundary,
                 int face,
 		vector<int> points,
-		vector<int> neighbors
+		int neighbor,
+		int tet
 		);
         Triangle() {};
 
@@ -39,13 +63,13 @@ class Triangle {
 	int face;
 	
 	// Points
-	void replacePoint(int point, int newPoint);
 	vector<int> points;
 
-	// Neighbors
-	bool hasNeighbor(int tet);
-	void removeNeighbor(int tet);
-        vector<int> neighbors;
+	// Neighbor
+        int neighbor;
+
+	// Tet
+	int tet;
     private:
 };
 
@@ -58,7 +82,7 @@ class Tet {
                 glm::vec4 pos,
 		float vol,
 		bool fixed,
-		vector<int> points,
+		int index,
 		vector<int> roommates
 		);
         Tet() {};
@@ -74,7 +98,6 @@ class Tet {
 	vector<int> triangles;
 
 	// Points
-	void replacePoint(int point, int newPoint);
         vector<int> points;
 
 	// Neighbors
@@ -84,16 +107,6 @@ class Tet {
         vector<float> init_lengths;
         vector<glm::vec4> init_dirs;
         vector<float> weights;
-
-	// Next-door Neighbors
-	bool hasNextDoorNeighbor(int tet);
-	void removeNextDoorNeighbor(int tet);
-	vector<int> nextDoorNeighbors;
-
-	// Next-door Neighbors
-	bool hasHousemate(int tet);
-	void removeHousemate(int tet);
-	vector<int> housemates;
 
 	// Roommates
 	bool hasRoommate(int tet);
@@ -124,13 +137,11 @@ class PeridynamicSystem {
     private:
         void calculateForces();
 
-	// Tets
-	void splitNextDoorNeighbors(int tet1, int tet2);
-	int findSharedPoint(int tet1, int tet2);
-	void splitHousemates(int tet1, int tet2);
-	vector<int> findSharedPoints(int tet1, int tet2);
-	void splitRoommates(int tet1, int tet2);
-	int findSharedTriangle(int tet1, int tet2);
+        // Tets
+
+        // Tets
+	int mapPoint(int tet, int p);
+        vector<int> mapTriangle(int tet, vector<int> tri);
 	vector<Tet> tets;
 
 	// Triangles
@@ -138,6 +149,11 @@ class PeridynamicSystem {
 
 	// Points
 	vector<Point> points;
+
+        // Rendered
+	
+	// Nodes
+        vector<Node> Nodes;
 
         TicTocTimer t = tic();
 

@@ -5,6 +5,10 @@
 
 using namespace std;
 
+// Rendered
+
+// Tets
+
 // Point
 
 bool Point::hasNeighbor(int tet) {
@@ -29,25 +33,11 @@ Triangle::Triangle(
         int boundary,
         int face,
 	vector<int> points,
-	vector<int> neighbors
+	int neighbor,
+	int tet
 	) : boundary(boundary), face(face),
-    points(points), neighbors(neighbors)
+    points(points), neighbor(neighbor), tet(tet)
 {
-}
-
-void Triangle::replacePoint(int point, int newPoint) {
-    if (points[0] == point) points[0] = newPoint;
-    else if (points[1] == point) points[1] = newPoint;
-    else if (points[2] == point) points[2] = newPoint;
-}
-
-bool Triangle::hasNeighbor(int tet) {
-    return tet == neighbors[0] || tet == neighbors[1];
-}
-
-void Triangle::removeNeighbor(int tet) {
-    if (neighbors[0] == tet) neighbors[0] = neighbors[1];
-    neighbors[1] = -1;
 }
 
 // Tet
@@ -56,51 +46,15 @@ Tet::Tet(
         glm::vec4 pos,
         float vol,
         bool fixed,
-        vector<int> points,
+        int point_index,
         vector<int> roommates
-        ) : position(pos), volume(vol), fixed(fixed), points(points),
+        ) : position(pos), volume(vol), fixed(fixed), points(4),
     roommates(roommates), velocity(glm::vec4(0)), force(glm::vec4(0))
 {
-}
-
-void Tet::replacePoint(int point, int newPoint) {
-    if (points[0] == point) points[0] = newPoint;
-    else if (points[1] == point) points[1] = newPoint;
-    else if (points[2] == point) points[2] = newPoint;
-    else points[3] = newPoint;
-}
-
-
-bool Tet::hasNextDoorNeighbor(int tet) {
-    for (uint i = 0; i < nextDoorNeighbors.size(); i++) {
-        if (tet == nextDoorNeighbors[i]) return true;
-    }
-    return false;
-}
-
-void Tet::removeNextDoorNeighbor(int tet) {
-    for (uint i = 0; i < nextDoorNeighbors.size(); i++) {
-        if (tet == nextDoorNeighbors[i]) {
-            neighbors.erase(nextDoorNeighbors.begin() + i);
-	    break;
-	}
-    }
-}
-
-bool Tet::hasHousemate(int tet) {
-    for (uint i = 0; i < housemates.size(); i++) {
-        if (tet == housemates[i]) return true;
-    }
-    return false;
-}
-
-void Tet::removeHousemate(int tet) {
-    for (uint i = 0; i < housemates.size(); i++) {
-        if (tet == housemates[i]) {
-            neighbors.erase(housemates.begin() + i);
-	    break;
-	}
-    }
+    points[0] = point_index;
+    points[1] = point_index+1;
+    points[2] = point_index+2;
+    points[3] = point_index+3;
 }
 
 bool Tet::hasRoommate(int tet) {
@@ -126,7 +80,8 @@ PeridynamicSystem::PeridynamicSystem(
         vector<vector<int>> neighbors,
 	vector<vector<int>> roommates
         ) : nodes(nodes), tets(eles.size(), Tet()),
-    triangles(tris.size(), Triangle()), points(nodes.size(), Point())
+    triangles(eles.size()*3, Triangle()), points(eles.size()*4, Point()),
+    Nodes(nodes.size(), Node())
 {
     for (uint i = 0; i < eles.size(); i++) {
         vector<int> ele = eles[i];
@@ -134,10 +89,15 @@ PeridynamicSystem::PeridynamicSystem(
         int B = ele[1];
         int C = ele[2];
         int D = ele[3];
-	points[A].neighbors.push_back(i);
-	points[B].neighbors.push_back(i);
-	points[C].neighbors.push_back(i);
-	points[D].neighbors.push_back(i);
+	int point_index = i * 4;
+	Nodes[A].neighbors.push_back(point_index);
+	Nodes[B].neighbors.push_back(point_index+1);
+	Nodes[C].neighbors.push_back(point_index+2);
+	Nodes[D].neighbors.push_back(point_index+3);
+	points[point_index].tet = i;
+	points[point_index+1].tet = i;
+	points[point_index+2].tet = i;
+	points[point_index+3].tet = i;
         glm::vec4 a = nodes[A];
         glm::vec4 b = nodes[B];
         glm::vec4 c = nodes[C];
@@ -146,44 +106,42 @@ PeridynamicSystem::PeridynamicSystem(
         float volume = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
 	bool fixed = false;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
-	tets[i] = Tet(position, volume, fixed, ele, roommates[i]);
+	tets[i] = Tet(position, volume, fixed, point_index, roommates[i]);
+    }
+
+    for (uint i = 0; i < Nodes.size(); i++) {
+	    for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
+		    int p = Nodes[i].neighbors[j];
+		    points[p].neighbors = Nodes[i].neighbors;
+		    points[p].neighbors.erase(points[p].neighbors.begin()+j);
+	    }
     }
 
     for (uint i = 0; i < tris.size(); i++) {
+        int tet1 = neighbors[i][0];
+	vector<int> points1 = mapTriangle(tet1, tris[i]);
+	int tri1 = triangles.size();
+
+        int tet2 = neighbors[i][1];
+	int tri2 = -1;
+	if (tet2 != -1) tri2 = tri1 + 1;
+
         int face = -1;
-	if (boundary[i] != 0) {
+	int b = boundary[i];
+	if (b != 0) {
             face = faces.size();
 	    faces.push_back(glm::uvec3(tris[i][0],tris[i][2],tris[i][1]));
         }
-        triangles[i] = Triangle(boundary[i], face, tris[i], neighbors[i]);
-        tets[neighbors[i][0]].triangles.push_back(i);
-	if (neighbors[i][1] != -1)
-            tets[neighbors[i][1]].triangles.push_back(i);
-    }
 
-    for (uint i = 0; i < points.size(); i++) {
-        for (uint j = 0; j < points[i].neighbors.size()-1; j++) {
-            int t1 = points[i].neighbors[j];
-            for (uint k = j + 1; k < points[i].neighbors.size(); k++) {
-                int t2 = points[i].neighbors[k];
-		if (tets[t1].hasRoommate(t2)) continue;
-		if (tets[t1].hasHousemate(t2)) continue;
-		uint p1 = tets[t1].points[0];
-		uint p2 = tets[t1].points[1];
-		uint p3 = tets[t1].points[2];
-		uint p4 = tets[t1].points[3];
-		if ((i != p1 && points[p1].hasNeighbor(t2))
-		            || (i != p2 && points[p2].hasNeighbor(t2))
-			    || (i != p3 && points[p3].hasNeighbor(t2))
-			    || (i != p4 && points[p4].hasNeighbor(t2))) {
-                    tets[t1].housemates.push_back(t2);
-		    tets[t2].housemates.push_back(t1);
-		    continue;
-		}
-                tets[t1].nextDoorNeighbors.push_back(t2);
-		tets[t2].nextDoorNeighbors.push_back(t1);
-	    }
-	}
+        tets[tet1].triangles.push_back(tri1);
+        triangles.push_back(Triangle(b, face, points1, tri2, tet1));
+
+	if (tet2 == -1) continue;
+
+	vector<int> points2 = mapTriangle(tet2, tris[i]);
+
+        tets[tet2].triangles.push_back(tri2);
+        triangles.push_back(Triangle(0, -1, points2, tri1, tet2));
     }
 
     for (uint i = 0; i < tets.size()-1; i++) {
@@ -228,10 +186,10 @@ void PeridynamicSystem::calculateNewPositions() {
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
         glm::vec4 velocity = glm::vec4(0);
-        for (uint j = 0; j < points[i].neighbors.size(); j++) {
-            velocity += tets[points[i].neighbors[j]].velocity;
+        for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
+            velocity += tets[points[Nodes[i].neighbors[j]].tet].velocity;
         }
-        velocity /= points[i].neighbors.size();
+        velocity /= Nodes[i].neighbors.size();
         nodes[i] += velocity*time;
     }
     // calculate forces
@@ -285,9 +243,9 @@ void PeridynamicSystem::calculateForces() {
             float extension = length - init_length;
             float stretch = extension / init_length;
             if (stretch >= .1) {
+		    /*
 	        if (tets[i].hasNextDoorNeighbor(tets[i].neighbors[j]))
                     splitNextDoorNeighbors(i,tets[i].neighbors[j]);
-		    /*
 		if (tets[i].hasHousemate(tets[i].neighbors[j]))
                     splitHousemates(i,tets[i].neighbors[j]);
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
@@ -380,365 +338,17 @@ void PeridynamicSystem::calculateForces() {
     */
 }
 
-void PeridynamicSystem::splitNextDoorNeighbors(int tet1, int tet2) {
-    // remove from next-door neighbors
-    tets[tet1].removeNextDoorNeighbor(tet2);
-    tets[tet2].removeNextDoorNeighbor(tet1);
-
-    std::cout << "hi" << std::endl;
-    std::cout << "Tet 1" << std::endl;
-    for (int i = 0; i < 4; i++) {
-        std::cout << i << " Point " << tets[tet1].points[i] << std::endl;
-    }
-    std::cout << std::endl;
-    std::cout << "Tet 2" << std::endl;
-    for (int i = 0; i < 4; i++) {
-        std::cout << i << " Point " << tets[tet2].points[i] << std::endl;
-    }
-    std::cout << std::endl;
-
-    // find shared point
-    int p = findSharedPoint(tet1, tet2);
-
-    std::cout << p << std::endl;
-    std::cout << std::endl;
-
-    // create duplicate point
-    glm::vec4 n = nodes[p];
-    Point P = points[p];
-
-    // remove tet1 from duplicate point
-    P.removeNeighbor(tet1);
-
-    // update point in tet2
-    tets[tet2].replacePoint(p, points.size());
-
-    // update point and faces in tet2 triangles
-    int t1 = tets[tet2].triangles[0];
-    int t2 = tets[tet2].triangles[1];
-    int t3 = tets[tet2].triangles[2];
-    int t4 = tets[tet2].triangles[3];
-
-    triangles[t1].replacePoint(p, points.size());
-
-    if (triangles[t1].face != -1) 
-        faces[triangles[t1].face] = glm::uvec3(triangles[t1].points[0],
-                triangles[t1].points[2], triangles[t1].points[1]);
-
-    triangles[t2].replacePoint(p, points.size());
-
-    if (triangles[t2].face != -1) 
-        faces[triangles[t2].face] = glm::uvec3(triangles[t2].points[0],
-                triangles[t2].points[2], triangles[t2].points[1]);
-
-    triangles[t3].replacePoint(p, points.size());
-
-    if (triangles[t3].face != -1) 
-        faces[triangles[t3].face] = glm::uvec3(triangles[t3].points[0],
-                triangles[t3].points[2], triangles[t3].points[1]);
-
-    triangles[t4].replacePoint(p, points.size());
-
-    if (triangles[t4].face != -1) 
-        faces[triangles[t4].face] = glm::uvec3(triangles[t4].points[0],
-                triangles[t4].points[2], triangles[t4].points[1]);
-
-    // add in duplicate point
-    nodes.push_back(n);
-    points.push_back(P);
-
-    // remove tet2 from original point
-    points[p].removeNeighbor(tet2);
-
-    std::cout << "hello" << std::endl;
-    std::cout << "Tet 1" << std::endl;
-    for (int i = 0; i < 4; i++) {
-        std::cout << i << " Point " << tets[tet1].points[i] << std::endl;
-    }
-    std::cout << std::endl;
-    std::cout << "Tet 2" << std::endl;
-    for (int i = 0; i < 4; i++) {
-        std::cout << i << " Point " << tets[tet2].points[i] << std::endl;
-    }
-    std::cout << std::endl << std::endl;
-}
-
-void PeridynamicSystem::splitHousemates(int tet1, int tet2) {
-    std::cout << "hello" << std::endl;
-    // remove from housemates
-    tets[tet1].removeHousemate(tet2);
-    tets[tet2].removeHousemate(tet1);
-
-    // find shared point
-    vector<int> p = findSharedPoints(tet1, tet2);
-
-    // create duplicate points
-    glm::vec4 n1 = nodes[p[0]];
-    glm::vec4 n2 = nodes[p[1]];
-    Point P1 = points[p[0]];
-    Point P2 = points[p[1]];
-
-    // remove tet1 from duplicate points
-    P1.removeNeighbor(tet1);
-    P2.removeNeighbor(tet1);
-
-    // update points in tet2
-    tets[tet2].replacePoint(p[0], points.size());
-    tets[tet2].replacePoint(p[1], points.size() + 1);
-
-    // update points and faces in tet2 triangles
-    int t1 = tets[tet2].triangles[0];
-    int t2 = tets[tet2].triangles[1];
-    int t3 = tets[tet2].triangles[2];
-    int t4 = tets[tet2].triangles[3];
-
-    triangles[t1].replacePoint(p[0], points.size());
-    triangles[t1].replacePoint(p[1], points.size() + 1);
-
-    if (triangles[t1].face != -1) 
-        faces[triangles[t1].face] = glm::uvec3(triangles[t1].points[0],
-                triangles[t1].points[2], triangles[t1].points[1]);
-
-    triangles[t2].replacePoint(p[0], points.size());
-    triangles[t2].replacePoint(p[1], points.size() + 1);
-
-    if (triangles[t2].face != -1) 
-        faces[triangles[t2].face] = glm::uvec3(triangles[t2].points[0],
-                triangles[t2].points[2], triangles[t2].points[1]);
-
-    triangles[t3].replacePoint(p[0], points.size());
-    triangles[t3].replacePoint(p[1], points.size() + 1);
-
-    if (triangles[t3].face != -1) 
-        faces[triangles[t3].face] = glm::uvec3(triangles[t3].points[0],
-                triangles[t3].points[2], triangles[t3].points[1]);
-
-    triangles[t4].replacePoint(p[0], points.size());
-    triangles[t4].replacePoint(p[1], points.size() + 1);
-
-    if (triangles[t4].face != -1) 
-        faces[triangles[t4].face] = glm::uvec3(triangles[t4].points[0],
-                triangles[t4].points[2], triangles[t4].points[1]);
-
-    // add in duplicate point
-    nodes.push_back(n1);
-    nodes.push_back(n2);
-    points.push_back(P1);
-    points.push_back(P2);
-
-    // remove tet2 from original point
-    points[p[0]].removeNeighbor(tet2);
-    points[p[1]].removeNeighbor(tet2);
-
-    std::cout << "hi" << std::endl;
-}
-
-vector<int> PeridynamicSystem::findSharedPoints(int tet1, int tet2) {
-    vector<int> r;
-    if (points[tets[tet1].points[0]].hasNeighbor(tet2))
-        r.push_back(tets[tet1].points[0]);
-    if (points[tets[tet1].points[1]].hasNeighbor(tet2))
-        r.push_back(tets[tet1].points[1]);
-    if (points[tets[tet1].points[2]].hasNeighbor(tet2))
-        r.push_back(tets[tet1].points[2]);
-    if (points[tets[tet1].points[3]].hasNeighbor(tet2))
-        r.push_back(tets[tet1].points[3]);
-    return r;
-}
-
-int PeridynamicSystem::findSharedPoint(int tet1, int tet2) {
-    if (points[tets[tet1].points[0]].hasNeighbor(tet2))
-        return tets[tet1].points[0];
-    if (points[tets[tet1].points[1]].hasNeighbor(tet2))
-        return tets[tet1].points[1];
-    if (points[tets[tet1].points[2]].hasNeighbor(tet2))
-        return tets[tet1].points[2];
-    if (points[tets[tet1].points[3]].hasNeighbor(tet2))
-        return tets[tet1].points[3];
+int PeridynamicSystem::mapPoint(int tet, int p) {
+    if (p == points[tets[tet].points[0]].node) return tets[tet].points[0];
+    if (p == points[tets[tet].points[1]].node) return tets[tet].points[1];
+    if (p == points[tets[tet].points[2]].node) return tets[tet].points[2];
+    if (p == points[tets[tet].points[3]].node) return tets[tet].points[3];
     return -1;
 }
 
-void PeridynamicSystem::splitRoommates(int tet1, int tet2) {
-    // remove from roommates
-    tets[tet1].removeRoommate(tet2);
-    tets[tet2].removeRoommate(tet1);
-
-    // find shared triangle
-    int tri = findSharedTriangle(tet1, tet2);
-
-    // create duplicate points
-    int p1 = triangles[tri].points[0];
-    int p2 = triangles[tri].points[1];
-    int p3 = triangles[tri].points[2];
-    glm::vec4 n1 = nodes[p1];
-    glm::vec4 n2 = nodes[p2];
-    glm::vec4 n3 = nodes[p3];
-    Point P1 = points[p1];
-    Point P2 = points[p2];
-    Point P3 = points[p3];
-
-    // remove tet1 from duplicate points
-    P1.removeNeighbor(tet1);
-    P2.removeNeighbor(tet1);
-    P3.removeNeighbor(tet1);
-
-    // create duplicate triangle
-    Triangle t = triangles[tri];
-
-    // correct duplicate triangle point indices
-    vector<int> p(3);
-    p[0] = points.size();
-    p[1] = points.size() + 1;
-    p[2] = points.size() + 2;
-    t.points = p;
-
-    // remove tet1 from duplicate triangle
-    t.removeNeighbor(tet1);
-
-    // update points in tet2
-    tets[tet2].replacePoint(p1, p[0]);
-    tets[tet2].replacePoint(p2, p[1]);
-    tets[tet2].replacePoint(p3, p[2]);
-
-    // update triangle in tet2 and points and faces in tet2 triangles
-    int t1 = tets[tet2].triangles[0];
-    int t2 = tets[tet2].triangles[1];
-    int t3 = tets[tet2].triangles[2];
-    int t4 = tets[tet2].triangles[3];
-    if (tri == t1) {
-        tets[tet2].triangles[0] = triangles.size();
-	
-	triangles[t2].replacePoint(p1, p[0]);
-	triangles[t2].replacePoint(p2, p[1]);
-	triangles[t2].replacePoint(p3, p[2]);
-
-	if (triangles[t2].face != -1) 
-            faces[triangles[t2].face] = glm::uvec3(triangles[t2].points[0],
-                    triangles[t2].points[2], triangles[t2].points[1]);
-                                          
-	triangles[t3].replacePoint(p1, p[0]);
-	triangles[t3].replacePoint(p2, p[1]);
-	triangles[t3].replacePoint(p3, p[2]);
-
-	if (triangles[t3].face != -1) 
-            faces[triangles[t3].face] = glm::uvec3(triangles[t3].points[0],
-                    triangles[t3].points[2], triangles[t3].points[1]);
-                                          
-	triangles[t4].replacePoint(p1, p[0]);
-	triangles[t4].replacePoint(p2, p[1]);
-	triangles[t4].replacePoint(p3, p[2]);
-
-	if (triangles[t4].face != -1) 
-            faces[triangles[t4].face] = glm::uvec3(triangles[t4].points[0],
-                    triangles[t4].points[2], triangles[t4].points[1]);
-    } else if (tri == t2) {
-        tets[tet2].triangles[1] = triangles.size();
-	
-	triangles[t1].replacePoint(p1, p[0]);
-	triangles[t1].replacePoint(p2, p[1]);
-	triangles[t1].replacePoint(p3, p[2]);
-
-	if (triangles[t1].face != -1) 
-            faces[triangles[t1].face] = glm::uvec3(triangles[t1].points[0],
-                    triangles[t1].points[2], triangles[t1].points[1]);
-                                          
-	triangles[t3].replacePoint(p1, p[0]);
-	triangles[t3].replacePoint(p2, p[1]);
-	triangles[t3].replacePoint(p3, p[2]);
-
-	if (triangles[t3].face != -1) 
-            faces[triangles[t3].face] = glm::uvec3(triangles[t3].points[0],
-                    triangles[t3].points[2], triangles[t3].points[1]);
-                                          
-	triangles[t4].replacePoint(p1, p[0]);
-	triangles[t4].replacePoint(p2, p[1]);
-	triangles[t4].replacePoint(p3, p[2]);
-
-	if (triangles[t4].face != -1) 
-            faces[triangles[t4].face] = glm::uvec3(triangles[t4].points[0],
-                    triangles[t4].points[2], triangles[t4].points[1]);
-    } else if (tri == t3) {
-        tets[tet2].triangles[2] = triangles.size();
-	
-	triangles[t1].replacePoint(p1, p[0]);
-	triangles[t1].replacePoint(p2, p[1]);
-	triangles[t1].replacePoint(p3, p[2]);
-
-	if (triangles[t1].face != -1) 
-            faces[triangles[t1].face] = glm::uvec3(triangles[t1].points[0],
-                    triangles[t1].points[2], triangles[t1].points[1]);
-                                          
-	triangles[t2].replacePoint(p1, p[0]);
-	triangles[t2].replacePoint(p2, p[1]);
-	triangles[t2].replacePoint(p3, p[2]);
-
-	if (triangles[t2].face != -1) 
-            faces[triangles[t2].face] = glm::uvec3(triangles[t2].points[0],
-                    triangles[t2].points[2], triangles[t2].points[1]);
-                                          
-	triangles[t4].replacePoint(p1, p[0]);
-	triangles[t4].replacePoint(p2, p[1]);
-	triangles[t4].replacePoint(p3, p[2]);
-
-	if (triangles[t4].face != -1) 
-            faces[triangles[t4].face] = glm::uvec3(triangles[t4].points[0],
-                    triangles[t4].points[2], triangles[t4].points[1]);
-    } else if (tri == t4) {
-        tets[tet2].triangles[3] = triangles.size();
-	
-	triangles[t1].replacePoint(p1, p[0]);
-	triangles[t1].replacePoint(p2, p[1]);
-	triangles[t1].replacePoint(p3, p[2]);
-
-	if (triangles[t1].face != -1) 
-            faces[triangles[t1].face] = glm::uvec3(triangles[t1].points[0],
-                    triangles[t1].points[2], triangles[t1].points[1]);
-                                          
-	triangles[t2].replacePoint(p1, p[0]);
-	triangles[t2].replacePoint(p2, p[1]);
-	triangles[t2].replacePoint(p3, p[2]);
-
-	if (triangles[t2].face != -1) 
-            faces[triangles[t2].face] = glm::uvec3(triangles[t2].points[0],
-                    triangles[t2].points[2], triangles[t2].points[1]);
-                                          
-	triangles[t3].replacePoint(p1, p[0]);
-	triangles[t3].replacePoint(p2, p[1]);
-	triangles[t3].replacePoint(p3, p[2]);
-
-	if (triangles[t3].face != -1) 
-            faces[triangles[t3].face] = glm::uvec3(triangles[t3].points[0],
-                    triangles[t3].points[2], triangles[t3].points[1]);
-    }
-
-    // add in duplicate points
-    nodes.push_back(n1);
-    nodes.push_back(n2);
-    nodes.push_back(n3);
-    points.push_back(P1);
-    points.push_back(P2);
-    points.push_back(P3);
-
-    // add in duplicate triangle
-    triangles.push_back(t);
-
-    // remove tet2 from original points
-    points[p1].removeNeighbor(tet2);
-    points[p2].removeNeighbor(tet2);
-    points[p3].removeNeighbor(tet2);
-
-    // remove tet2 from original triangle
-    triangles[tri].removeNeighbor(tet2);
-}
-
-int PeridynamicSystem::findSharedTriangle(int tet1, int tet2) {
-    if (triangles[tets[tet1].triangles[0]].hasNeighbor(tet2))
-        return tets[tet1].triangles[0];
-    if (triangles[tets[tet1].triangles[1]].hasNeighbor(tet2))
-        return tets[tet1].triangles[1];
-    if (triangles[tets[tet1].triangles[2]].hasNeighbor(tet2))
-        return tets[tet1].triangles[2];
-    if (triangles[tets[tet1].triangles[3]].hasNeighbor(tet2))
-        return tets[tet1].triangles[3];
-    return -1;
+vector<int> PeridynamicSystem::mapTriangle(int tet, vector<int> tri) {
+    tri[0] = mapPoint(tet, tri[0]);
+    tri[1] = mapPoint(tet, tri[1]);
+    tri[2] = mapPoint(tet, tri[2]);
+    return tri;
 }
