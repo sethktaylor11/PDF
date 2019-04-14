@@ -399,27 +399,21 @@ void PeridynamicSystem::duplicateTetNodes(int tet) {
     duplicatePointNode(tets[tet].points[3]);
 }
 
-void PeridynamicSystem::updateFaces(int tet) {
-    int t1 = tets[tet].triangles[0];
-    int t2 = tets[tet].triangles[1];
-    int t3 = tets[tet].triangles[2];
-    int t4 = tets[tet].triangles[3];
+void PeridynamicSystem::updateTetFaces(int tet) {
+    // update faces in tet
+    updateTriangleFace(tets[tet].triangles[0]);
+    updateTriangleFace(tets[tet].triangles[1]);
+    updateTriangleFace(tets[tet].triangles[2]);
+    updateTriangleFace(tets[tet].triangles[3]);
+}
 
-    if (triangles[t1].face != -1) 
-        faces[triangles[t1].face] = glm::uvec3(points[triangles[t1].points[0]].node,
-                points[triangles[t1].points[2]].node, points[triangles[t1].points[1]].node);
+void PeridynamicSystem::split(int tet1, int tet2) {
+    // remove from point neighbors
+    tetRemovePointNeighbor(tet1, tet2);
+    tetRemovePointNeighbor(tet2, tet1);
 
-    if (triangles[t2].face != -1)
-        faces[triangles[t2].face] = glm::uvec3(points[triangles[t2].points[0]].node,
-                points[triangles[t2].points[2]].node, points[triangles[t2].points[1]].node);
-
-    if (triangles[t3].face != -1)
-        faces[triangles[t3].face] = glm::uvec3(points[triangles[t3].points[0]].node,
-                points[triangles[t3].points[2]].node, points[triangles[t3].points[1]].node);
-
-    if (triangles[t4].face != -1)
-        faces[triangles[t4].face] = glm::uvec3(points[triangles[t4].points[0]].node,
-                points[triangles[t4].points[2]].node, points[triangles[t4].points[1]].node);
+    // duplicate nodes in tet1 if necessary
+    duplicateTetNodes(tet1);
 }
 
 void PeridynamicSystem::splitNextDoorNeighbors(int tet1, int tet2) {
@@ -427,25 +421,64 @@ void PeridynamicSystem::splitNextDoorNeighbors(int tet1, int tet2) {
     tets[tet1].removeNextDoorNeighbor(tet2);
     tets[tet2].removeNextDoorNeighbor(tet1);
 
-    // remove from point neighbors
-    tetRemovePointNeighbor(tet1, tet2);
-    tetRemovePointNeighbor(tet2, tet1);
+    // shared splitting behavior
+    split(tet1, tet2);
+}
 
-    // duplicate nodes in tet1 if necessary
-    duplicateTetNodes(tet1);
+void PeridynamicSystem::createTetFaces(int tet1, int tet2) {
+    // create new faces from neighboring triangles
+    int t1 = tets[tet1].triangles[0];
+    int n1 = triangles[t1].neighbor;
+    int t2 = tets[tet1].triangles[1];
+    int n2 = triangles[t2].neighbor;
+    int t3 = tets[tet1].triangles[2];
+    int n3 = triangles[t3].neighbor;
+    int t4 = tets[tet1].triangles[3];
+    int n4 = triangles[t4].neighbor;
+    if (n1 != -1 && tet2 == triangles[n1].tet) {
+        createTriangleFace(t1);
+	createTriangleFace(n1);
+    } else if (n2 != -1 && tet2 == triangles[n2].tet) {
+        createTriangleFace(t2);
+	createTriangleFace(n2);
+    } else if (n3 != -1 && tet2 == triangles[n3].tet) {
+        createTriangleFace(t3);
+	createTriangleFace(n3);
+    } else {
+        createTriangleFace(t4);
+	createTriangleFace(n4);
+    }
 }
 
 void PeridynamicSystem::splitRoommates(int tet1, int tet2) {
+    // create faces from splitting tet1 and tet2
+    createTetFaces(tet1, tet2);
+
     // remove from roommates
     tets[tet1].removeRoommate(tet2);
     tets[tet2].removeRoommate(tet1);
 
-    // remove from point neighbors
-    tetRemovePointNeighbor(tet1, tet2);
-    tetRemovePointNeighbor(tet2, tet1);
+    // shared splitting behavior
+    split(tet1, tet2);
+}
 
-    // duplicate nodes in tet1 if necessary
-    duplicateTetNodes(tet1);
+// Triangles
+
+void PeridynamicSystem::updateTriangleFace(int t) {
+    // update triangle t face
+    if (triangles[t].face != -1) 
+        faces[triangles[t].face] = glm::uvec3(
+                points[triangles[t].points[0]].node,
+                points[triangles[t].points[2]].node,
+		points[triangles[t].points[1]].node);
+}
+
+void PeridynamicSystem::createTriangleFace(int t) {
+    // create a face from triangle t
+    triangles[t].face = faces.size();
+    faces.push_back(glm::uvec3(points[triangles[t].points[0]].node,
+                points[triangles[t].points[2]].node,
+		points[triangles[t].points[1]].node));
 }
 
 // Points
@@ -460,6 +493,7 @@ void PeridynamicSystem::pointRemoveNeighbor(int p, int t) {
 }
 
 void PeridynamicSystem::findReachable(vector<int> &reachable, int p) {
+    // recursive function to find all points reachable from point p
     for (uint i = 0; i < points[p].neighbors.size(); i++) {
         if (std::find(reachable.begin(), reachable.end(), points[p].neighbors[i]) != reachable.end())
             continue;
@@ -489,12 +523,12 @@ void PeridynamicSystem::duplicatePointNode(int p) {
 
     // update the node in the duplicate nodes neighbors
     for (uint i = 0; i < n.neighbors.size(); i++) {
-        points[n.neighbors[i]].node = Nodes.size();
+        points[n.neighbors[i]].node = nodes.size();
     }
 
     // update the faces in the duplicate nodes neighbors' tets
     for (uint i = 0; i < n.neighbors.size(); i++) {
-        updateFaces(points[n.neighbors[i]].tet);
+        updateTetFaces(points[n.neighbors[i]].tet);
     }
 
     // add in duplicate node

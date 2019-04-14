@@ -149,12 +149,16 @@ class PeridynamicSystem {
         vector<int> mapTriangle(int tet, vector<int> tri);
 	void tetRemovePointNeighbor(int tet1, int tet2);
 	void duplicateTetNodes(int tet);
-	void updateFaces(int tet);
+	void updateTetFaces(int tet);
+	void split(int tet1, int tet2);
 	void splitNextDoorNeighbors(int tet1, int tet2);
+	void createTetFaces(int tet1, int tet2);
 	void splitRoommates(int tet1, int tet2);
 	vector<Tet> tets;
 
 	// Triangles
+	void updateTriangleFace(int t);
+	void createTriangleFace(int t);
 	vector<Triangle> triangles;
 
 	// Points
