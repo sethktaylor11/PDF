@@ -58,10 +58,7 @@ Tet::Tet(
 }
 
 bool Tet::hasNextDoorNeighbor(int tet) {
-    for (uint i = 0; i < nextDoorNeighbors.size(); i++) {
-        if (tet == nextDoorNeighbors[i]) return true;
-    }
-    return false;
+    return std::find(nextDoorNeighbors.begin(), nextDoorNeighbors.end(), tet) != nextDoorNeighbors.end();
 }
 
 void Tet::removeNextDoorNeighbor(int tet) {
@@ -559,36 +556,8 @@ void PeridynamicSystem::duplicatePointNode(int p) {
     Nodes.push_back(n);
     nodes.push_back(nodes[points[p].node]);
 
-    /*
-    std::cout << "Node1" << std::endl;
-    for (uint i = 0; i < Nodes[points[p].node].neighbors.size(); i++) {
-        std::cout << Nodes[points[p].node].neighbors[i] << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "Reachable" << std::endl;
-    for (uint i = 0; i < reachable.size(); i++) {
-        std::cout << reachable[i] << " ";
-    }
-    std::cout << std::endl;
-    */
-
     // update the neighbors in the original node
     Nodes[points[p].node].neighbors = reachable;
-
-    /*
-    std::cout << "Node'" << std::endl;
-    for (uint i = 0; i < n.neighbors.size(); i++) {
-        std::cout << n.neighbors[i] << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "Node2" << std::endl;
-    for (uint i = 0; i < Nodes[points[p].node].neighbors.size(); i++) {
-        std::cout << Nodes[points[p].node].neighbors[i] << " ";
-    }
-    std::cout << std::endl;
-    */
 }
 
 // Rendered
