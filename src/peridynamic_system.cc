@@ -197,6 +197,24 @@ PeridynamicSystem::PeridynamicSystem(
         tets[i].broken.resize(tets[i].neighbors.size(),false);
     }
     tets[tets.size()-1].broken.resize(tets[tets.size()-1].neighbors.size(),false);
+
+    for (uint i = 0; i < tets.size(); i++) {
+        glm::vec4 pos = tets[i].position;
+	for (uint j = 0; j < 4; j++) {
+            int tet2 = tets[i].roommates[j];
+            if (tet2 == -1) continue;
+	    glm::vec4 vec = tets[tet2].position - pos;
+	    float length = glm::length(vec);
+	    if (length >= delta) splitRoommates(i,tet2);
+	}
+	for (uint j = 0; j < tets[i].nextDoorNeighbors.size(); j++) {
+            int tet2 = tets[i].nextDoorNeighbors[j];
+            if (tet2 == -1) continue;
+	    glm::vec4 vec = tets[tet2].position - pos;
+	    float length = glm::length(vec);
+	    if (length >= delta) splitNextDoorNeighbors(i,tet2);
+	}
+    }
 }
 
 void PeridynamicSystem::calculateNewPositions() {
