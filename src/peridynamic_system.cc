@@ -335,7 +335,7 @@ void PeridynamicSystem::calculateForces() {
             tets[p2].force += Tp1p2 * tets[p1].volume;
             tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
-        tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
+        //tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
         //tets[p1].force += glm::vec4(1,0,0,0) * tets[p1].volume;
     }
 

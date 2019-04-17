@@ -83,7 +83,7 @@ GLFWwindow* init_glefw()
 
 void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
     ifstream nodesFile;
-    nodesFile.open("box.2.node");
+    nodesFile.open("test.node");
     int nP, d, nAN, nBN;
     nodesFile >> nP >> d >> nAN >> nBN;
     nodes.resize(nP);
@@ -99,7 +99,7 @@ void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
 
 void readFaces(vector<int>& boundary, vector<vector<int>>& triangles, vector<vector<int>>& neighbors) {
     ifstream facesFile;
-    facesFile.open("box.2.face");
+    facesFile.open("test.face");
     int nF, nBF;
     facesFile >> nF >> nBF;
     boundary.resize(nF);
@@ -119,7 +119,7 @@ void readFaces(vector<int>& boundary, vector<vector<int>>& triangles, vector<vec
 
 void readTets(vector<vector<int>>& tets) {
     ifstream tetsFile;
-    tetsFile.open("box.2.ele");
+    tetsFile.open("test.ele");
     int nT, nN, nAT;
     tetsFile >> nT >> nN >> nAT;
     tets.resize(nT);
@@ -137,7 +137,7 @@ void readTets(vector<vector<int>>& tets) {
 
 void readNeighbors(vector<vector<int>>& neighbors) {
     ifstream neighborsFile;
-    neighborsFile.open("box.2.neigh");
+    neighborsFile.open("test.neigh");
     int nT, nN;
     neighborsFile >> nT >> nN;
     neighbors.resize(nT);
