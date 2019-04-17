@@ -177,9 +177,9 @@ class PeridynamicSystem {
 
 	// Constants
         float time = 0.015f;
-        float delta = 0.6f;
-        float a = 20.0f;
-        float b = 50.0f;
+        float delta = 2.0f;
+        float a = 1.0f;
+        float b = 1.0f;
         float damping = 0.001f;
 };
 
