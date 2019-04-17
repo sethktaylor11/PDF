@@ -169,6 +169,9 @@ PeridynamicSystem::PeridynamicSystem(
 	if (tet2 == -1) continue;
 
 	vector<int> points2 = mapTriangle(tet2, tris[i]);
+	int temp = points2[1];
+	points2[1] = points2[2];
+	points2[2] = temp;
 
         tets[tet2].triangles.push_back(tri2);
         triangles.push_back(Triangle(0, -1, points2, tri1, tet2));
@@ -212,7 +215,10 @@ PeridynamicSystem::PeridynamicSystem(
             if (tet2 == -1) continue;
 	    glm::vec4 vec = tets[tet2].position - pos;
 	    float length = glm::length(vec);
-	    if (length >= delta) splitNextDoorNeighbors(i,tet2);
+	    if (length >= delta) {
+		    splitNextDoorNeighbors(i,tet2);
+		    j--;
+	    }
 	}
     }
 }
