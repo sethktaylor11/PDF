@@ -22,6 +22,7 @@ PeridynamicSystem::PeridynamicSystem(
     neighborhoods(tets.size(), vector<int>()),
     broken(tets.size(), vector<bool>()),
     weights(tets.size(), vector<float>()),
+    Kinv(tets.size(), glm::mat3()),
     volumes(tets.size(), 0),
     moments(tets.size(), 0),
     velocities(tets.size(), glm::vec4(0)),
@@ -83,6 +84,15 @@ PeridynamicSystem::PeridynamicSystem(
         }
         broken[i].resize(neighborhoods[i].size(),false);
     }
+
+    for (uint i = 0; i < particles.size()-1; i++) {
+        glm::mat3 K = glm::mat3(0);
+	for (uint j = 0; j < neighborhoods[i].size(); j++ ) {
+            glm::vec3 init_vec = glm::vec3(init_vecs[i][j]);
+            K += weights[i][j] * glm::outerProduct(init_vec,init_vec) * volumes[neighborhoods[i][j]];
+	}
+	Kinv[i] = glm::inverse(K);
+    }
 }
 
 void PeridynamicSystem::calculateNewPositions() {
@@ -141,19 +151,23 @@ void PeridynamicSystem::calculateForces() {
     torques = vector<glm::vec3>(particles.size(), glm::vec3(0));
 
     // compute relevant values from deformed positions
-    vector<vector<glm::vec4>> vecs(particles.size());
-    vector<vector<float>> lengths(particles.size());
-    vector<vector<glm::vec4>> dirs(particles.size());
-    vector<vector<float>> extensions(particles.size());
-    vector<vector<float>> stretches(particles.size());
+    //vector<vector<glm::vec4>> vecs(particles.size());
+    //vector<vector<float>> lengths(particles.size());
+    //vector<vector<glm::vec4>> dirs(particles.size());
+    //vector<vector<float>> extensions(particles.size());
+    //vector<vector<float>> stretches(particles.size());
+    vector<vector<glm::vec3>> u_theta_vecs(particles.size());
     vector<vector<glm::vec3>> orientation_vecs(particles.size());
 
     for (uint i = 0; i < particles.size(); i++) {
+        /*
         vecs[i].resize(neighborhoods[i].size());
         lengths[i].resize(neighborhoods[i].size());
         dirs[i].resize(neighborhoods[i].size());
         extensions[i].resize(neighborhoods[i].size());
         stretches[i].resize(neighborhoods[i].size());
+	*/
+        u_theta_vecs[i].resize(neighborhoods[i].size());
         orientation_vecs[i].resize(neighborhoods[i].size());
         glm::vec4 pos = particles[i];
         glm::vec3 orientation = orientations[i];
@@ -161,11 +175,15 @@ void PeridynamicSystem::calculateForces() {
             if (broken[i][j]) continue;
             int p2 = neighborhoods[i][j];
             glm::vec4 vec = particles[p2] - pos;
+	    /*
             float length = glm::length(vec);
             glm::vec4 dir = vec / length;
             float init_length = init_lengths[i][j];
             float extension = length - init_length;
             float stretch = extension / init_length;
+	    */
+	    glm::vec4 init_vec = init_vecs[i][j];
+	    glm::vec3 u_theta_vec = glm::vec3(vec - init_vec) - glm::cross((orientation + orientations[p2])/2.0f,glm::vec3(init_vec));
 	    glm::vec3 orientation_vec = orientations[p2] - orientation;
             /*
             if (stretch >= .5) {
@@ -173,15 +191,17 @@ void PeridynamicSystem::calculateForces() {
                 continue;
             }
             */
-            vecs[i][j] = vec;
-            lengths[i][j] = length;
-            dirs[i][j] = dir;
-            extensions[i][j] = extension;
-            stretches[i][j] = stretch;
+            //vecs[i][j] = vec;
+            //lengths[i][j] = length;
+            //dirs[i][j] = dir;
+            //extensions[i][j] = extension;
+            //stretches[i][j] = stretch;
+	    u_theta_vecs[i][j] = u_theta_vec;
 	    orientation_vecs[i][j] = orientation_vec;
         }
     }
 
+    /*
     // compute dilatations
     vector<float> thetas(particles.size());
 
@@ -199,6 +219,7 @@ void PeridynamicSystem::calculateForces() {
         float theta = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * sum;
         thetas[i] = theta;
     }
+    */
 
     // compute gammas and kappas
     vector<glm::mat3> gammas(particles.size());
@@ -212,15 +233,14 @@ void PeridynamicSystem::calculateForces() {
             int k = neighborhoods[i][j];
             float weight = weights[i][j];
             glm::vec3 init_vec = glm::vec3(init_vecs[i][j]);
-            glm::vec3 vec = glm::vec3(vecs[i][j]);
+            //glm::vec3 vec = glm::vec3(vecs[i][j]);
+            glm::vec3 vec = glm::vec3(u_theta_vecs[i][j]);
             gamma += weight * glm::outerProduct(vec,init_vec) * volumes[k];
             glm::vec3 orientation_vec = orientation_vecs[i][j];
             kappa += weight * glm::outerProduct(orientation_vec,init_vec) * volumes[k];
         }
-        gamma *= 3.0f / (glm::pi<float>() * glm::pow(delta,5));
-	gammas[i] = gamma;
-        kappa *= 3.0f / (glm::pi<float>() * glm::pow(delta,5));
-	kappas[i] = kappa;
+	gammas[i] = gamma * Kinv[i];
+	kappas[i] = kappa * Kinv[i];
     }
 
     // compute sigmas and mus
@@ -230,17 +250,15 @@ void PeridynamicSystem::calculateForces() {
     glm::mat3 I = glm::mat3(1.0f);
     for (uint i = 0; i < particles.size(); i++) {
 	    glm::mat3 g = gammas[i];
-	    sigmasKinv[i] = (lambda * (g[0][0] + g[1][1] + g[2][2]) * I + (mu + eta) * glm::transpose(g) + mu * g)
-		    * 3.0f / (float) (glm::pi<float>() * glm::pow(delta,5));
+	    sigmasKinv[i] = (lambda * (g[0][0] + g[1][1] + g[2][2]) * I + (mu + eta) * glm::transpose(g) + mu * g);
 	    glm::mat3 k = kappas[i];
-	    musKinv[i] = (alpha * (k[0][0] + k[1][1] + k[2][2]) * I + beta * k + gamma * glm::transpose(k))
-		    * 3.0f / (float) (glm::pi<float>() * glm::pow(delta,5));
+	    musKinv[i] = (alpha * (k[0][0] + k[1][1] + k[2][2]) * I + beta * k + gamma * glm::transpose(k));
     }
 
     // compute forces
     for (uint i = 0; i < particles.size(); i++) { 
         int p1 = i;
-        float theta1 = thetas[p1];
+        //float theta1 = thetas[p1];
         for (uint j = 0; j < neighborhoods[i].size(); j++) {
             if (broken[i][j]) continue;
             int p2 = neighborhoods[i][j];

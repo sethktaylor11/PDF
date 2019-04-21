@@ -34,6 +34,7 @@ class PeridynamicSystem {
         vector<vector<float>> init_lengths;
         vector<vector<glm::vec4>> init_dirs;
         vector<vector<float>> weights;
+	vector<glm::mat3> Kinv;
         vector<float> volumes;
         vector<float> moments;
         vector<glm::vec4> velocities;
@@ -50,12 +51,12 @@ class PeridynamicSystem {
         float damping = 0.001f;
 	float lambda;
 	float mu;
-	float eta = .000001f;
+	float eta = 0.001f;
 	float alpha = 1.0f;
 	float beta = 1.0f;
 	float gamma = 1.0f;
-	float G = .000001f;
-	float v = 0.3f;
+	float G = .001f;
+	float v = 0.25f;
 };
 
 #endif
