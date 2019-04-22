@@ -305,12 +305,13 @@ void PeridynamicSystem::calculateForces() {
     }
 
     // compute F's
-    glm::mat3 Kinv(0);
-    glm::mat3 F(0);
-    glm::mat3 P(0);
-    glm::mat3 K(0);
+    std::vector<glm::mat3> Kinvs(tets.size());
+    std::vector<glm::mat3> Fs(tets.size());
+    std::vector<glm::mat3> Ps(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
+        glm::mat3 K(0);
+        glm::mat3 F(0);
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
 	    glm::vec3 init_vec = glm::vec3(tets[i].init_vecs[j]);
@@ -319,12 +320,12 @@ void PeridynamicSystem::calculateForces() {
             glm::vec3 vec = glm::vec3(vecs[i][j]);
 	    F += tets[i].weights[j] * glm::outerProduct(vec,init_vec) * volume;
 	}
+	Kinvs[i] = glm::inverse(K);
+	Fs[i] = F * Kinvs[i];
+	glm::mat3 I(1.0f);
+	float tr = F[0][0] + F[1][1] + F[2][2] - 3;
+	Ps[i] = mu * (F + glm::transpose(F) - 2.0f * I) + lambda * tr * I;
     }
-    Kinv = glm::inverse(K);
-    F = F * Kinv;
-    glm::mat3 I(1.0f);
-    float tr = F[0][0] + F[1][1] + F[2][2] - 3;
-    P = mu * (F + glm::transpose(F) - 2.0f * I) + lambda * tr * I;
 
     /*
     // compute dilatations
@@ -388,8 +389,8 @@ void PeridynamicSystem::calculateForces() {
             if (p2 < p1) continue;
             float weight = tets[p1].weights[j];
 	    glm::vec3 init_vec = glm::vec3(tets[p1].init_vecs[j]);
-	    glm::vec3 Tp2p1 = weight * P * Kinv * init_vec;
-	    glm::vec3 Tp1p2 = weight * P * Kinv * -init_vec;
+	    glm::vec3 Tp2p1 = weight * Ps[p1] * Kinvs[p1] * init_vec;
+	    glm::vec3 Tp1p2 = weight * Ps[p2] * Kinvs[p2] * -init_vec;
             tets[p1].force += glm::vec4(Tp2p1 * tets[p2].volume, 0.0f);
             tets[p1].force -= glm::vec4(Tp1p2 * tets[p2].volume, 0.0f);
             tets[p2].force += glm::vec4(Tp1p2 * tets[p1].volume, 0.0f);
