@@ -251,21 +251,6 @@ void PeridynamicSystem::calculateNewPositions() {
         if (tets[i].fixed) continue;
         tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
     }
-    /*
-    // remove broken faces
-    for (uint i = 0; i < faces.size(); i++) {
-        int tet = triangles[i].neighbors[0];
-	for (uint j = 0; j < tets[tet].broken.size(); j++) {
-            if (tets[tet].broken[j]) {
-                faces.erase(faces.begin() + i);
-		triangles.erase(triangles.begin() + i);
-		i--;
-		continue;
-	    }
-	}
-	i++;
-    }
-    */
 }
 
 void PeridynamicSystem::calculateForces() {
@@ -293,6 +278,7 @@ void PeridynamicSystem::calculateForces() {
             float init_length = tets[i].init_lengths[j];
             float extension = length - init_length;
             float stretch = extension / init_length;
+	    /*
             if (stretch >= .1) {
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
                     splitRoommates(i,tets[i].neighbors[j]);
@@ -301,6 +287,7 @@ void PeridynamicSystem::calculateForces() {
                 tets[i].broken[j] = true;
                 continue;
             }
+	    */
             vecs[i][j] = vec;
             lengths[i][j] = length;
             dirs[i][j] = dir;
@@ -356,33 +343,21 @@ void PeridynamicSystem::calculateForces() {
             tets[p2].force += Tp1p2 * tets[p1].volume;
             tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
-        tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
-        //tets[p1].force += glm::vec4(1,0,0,0) * tets[p1].volume;
+        //tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
     }
 
-    /*
-    glm::vec4 pressure = glm::vec4(0);
     // compute pressure
-    for (uint i = 0; i < faces.size(); i++) {
-        if (boundary[i] != 2) continue;
-        glm::uvec3 face = faces[i];
+    for (uint i = 0; i < triangles.size(); i++) {
+        if (triangles[i].boundary != 2) continue;
+        glm::uvec3 face = faces[triangles[i].face];
         glm::vec4 A = nodes[face[0]];
         glm::vec4 B = nodes[face[1]];
         glm::vec4 C = nodes[face[2]];
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        forces[neighbors[i]] += -40.0f * glm::vec4(n,0) * area;
-        pressure += -40.0f * glm::vec4(n,0) * area;
+        tets[triangles[i].tet].force += -40.0f * glm::vec4(n,0) * area;
     }
-    cout << "pressure " << glm::to_string(pressure) << endl;
-    glm::vec3 angular = glm::vec3(0);
-    for (uint i = 0; i < tets.size(); i++) {
-	angular += glm::cross(glm::vec3(particles[i])-glm::vec3(0,3,0),glm::vec3(forces[i]));
-    }
-    cout << "angular " << glm::to_string(angular) << endl;
-    assert(glm::length(pressure) == 0);
-    */
 }
 
 // Tets
