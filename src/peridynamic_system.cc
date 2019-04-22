@@ -259,25 +259,31 @@ void PeridynamicSystem::calculateForces() {
 
     // compute relevant values from deformed positions
     vector<vector<glm::vec4>> vecs(tets.size());
+    /*
     vector<vector<float>> lengths(tets.size());
     vector<vector<glm::vec4>> dirs(tets.size());
     vector<vector<float>> extensions(tets.size());
     vector<vector<float>> stretches(tets.size());
+    */
 
     for (uint i = 0; i < tets.size(); i++) {
         vecs[i].resize(tets[i].neighbors.size());
+	/*
         lengths[i].resize(tets[i].neighbors.size());
         dirs[i].resize(tets[i].neighbors.size());
         extensions[i].resize(tets[i].neighbors.size());
         stretches[i].resize(tets[i].neighbors.size());
+	*/
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
             glm::vec4 vec = tets[tets[i].neighbors[j]].position - tets[i].position;
+	    /*
             float length = glm::length(vec);
             glm::vec4 dir = vec / length;
             float init_length = tets[i].init_lengths[j];
             float extension = length - init_length;
             float stretch = extension / init_length;
+	    */
 	    /*
             if (stretch >= .1) {
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
@@ -289,13 +295,38 @@ void PeridynamicSystem::calculateForces() {
             }
 	    */
             vecs[i][j] = vec;
+	    /*
             lengths[i][j] = length;
             dirs[i][j] = dir;
             extensions[i][j] = extension;
             stretches[i][j] = stretch;
+	    */
         }
     }
 
+    // compute F's
+    glm::mat3 Kinv(0);
+    glm::mat3 F(0);
+    glm::mat3 P(0);
+    glm::mat3 K(0);
+
+    for (uint i = 0; i < tets.size(); i++) {
+        for (uint j = 0; j < tets[i].neighbors.size(); j++) {
+            if (tets[i].broken[j]) continue;
+	    glm::vec3 init_vec = glm::vec3(tets[i].init_vecs[j]);
+	    float volume = tets[tets[i].neighbors[j]].volume;
+	    K += tets[i].weights[j] * glm::outerProduct(init_vec,init_vec) * volume;
+            glm::vec3 vec = glm::vec3(vecs[i][j]);
+	    F += tets[i].weights[j] * glm::outerProduct(vec,init_vec) * volume;
+	}
+    }
+    Kinv = glm::inverse(K);
+    F = F * Kinv;
+    glm::mat3 I(1.0f);
+    float tr = F[0][0] + F[1][1] + F[2][2] - 3;
+    P = mu * (F + glm::transpose(F) - 2.0f * I) + lambda * tr * I;
+
+    /*
     // compute dilatations
     vector<float> thetas(tets.size());
 
@@ -313,7 +344,9 @@ void PeridynamicSystem::calculateForces() {
         float theta = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * sum;
         thetas[i] = theta;
     }
+    */
 
+    /*
     // compute forces
     for (uint i = 0; i < tets.size(); i++) { 
         int p1 = i;
@@ -344,6 +377,24 @@ void PeridynamicSystem::calculateForces() {
             tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
         //tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
+    }
+    */
+
+    for (uint i = 0; i < tets.size(); i++) {
+        int p1 = i;
+        for (uint j = 0; j < tets[p1].neighbors.size(); j++) {
+            if (tets[p1].broken[j]) continue;
+            int p2 = tets[p1].neighbors[j];
+            if (p2 < p1) continue;
+            float weight = tets[p1].weights[j];
+	    glm::vec3 init_vec = glm::vec3(tets[p1].init_vecs[j]);
+	    glm::vec3 Tp2p1 = weight * P * Kinv * init_vec;
+	    glm::vec3 Tp1p2 = weight * P * Kinv * -init_vec;
+            tets[p1].force += glm::vec4(Tp2p1 * tets[p2].volume, 0.0f);
+            tets[p1].force -= glm::vec4(Tp1p2 * tets[p2].volume, 0.0f);
+            tets[p2].force += glm::vec4(Tp1p2 * tets[p1].volume, 0.0f);
+            tets[p2].force -= glm::vec4(Tp2p1 * tets[p1].volume, 0.0f);
+	}
     }
 
     // compute pressure

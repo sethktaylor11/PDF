@@ -181,6 +181,8 @@ class PeridynamicSystem {
         float a = 10.0f;
         float b = 10.0f;
         float damping = 0.001f;
+	float mu = 1.0f;
+	float lambda = 1.0f;
 };
 
 #endif
