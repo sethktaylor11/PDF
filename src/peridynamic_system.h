@@ -91,7 +91,11 @@ class Tet {
 	glm::vec4 position;
         glm::vec4 velocity;
 	glm::vec4 force;
+	glm::vec3 orientation;
+	glm::vec3 angular_velocity;
+	glm::vec3 torque;
         float volume;
+	float moment;
 	bool fixed;
 
 	// Triangles
@@ -180,6 +184,7 @@ class PeridynamicSystem {
         float delta = 0.6f;
         float a = 10.0f;
         float b = 10.0f;
+	float c = 50.0f;
         float damping = 0.001f;
 };
 

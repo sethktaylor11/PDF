@@ -49,7 +49,9 @@ Tet::Tet(
         int point_index,
         vector<int> roommates
         ) : position(pos), volume(vol), fixed(fixed), points(4),
-    roommates(roommates), velocity(glm::vec4(0)), force(glm::vec4(0))
+    roommates(roommates), velocity(glm::vec4(0)), force(glm::vec4(0)),
+    orientation(glm::vec3(0)), angular_velocity(glm::vec3(0)),
+    torque(glm::vec3(0))
 {
     points[0] = point_index;
     points[1] = point_index+1;
@@ -120,6 +122,7 @@ PeridynamicSystem::PeridynamicSystem(
 	bool fixed = false;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
 	tets[i] = Tet(position, volume, fixed, point_index, roommates[i]);
+	// TODO add in moment of inertia
     }
 
     for (uint i = 0; i < Nodes.size(); i++) {
@@ -225,37 +228,60 @@ void PeridynamicSystem::calculateNewPositions() {
     for (uint i = 0; i < tets.size(); i++) {
         if (tets[i].fixed) continue;
         tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
+	tets[i].angular_velocity += tets[i].torque*time/(2*tets[i].volume); // moment
+        // damping
+        tets[i].velocity *= 1-damping;
+	tets[i].angular_velocity *= 1-damping;
     }
     // new particle positions
     for (uint i = 0; i < tets.size(); i++) {
-        // damping
-        tets[i].velocity *= 1-damping;
         if (tets[i].fixed) continue;
         tets[i].position += tets[i].velocity*time;
+	tets[i].orientation += tets[i].angular_velocity*time;
     }
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
         // TODO needs weights and masses
+	float weight = 0;
         glm::vec4 velocity = glm::vec4(0);
         for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
-            velocity += tets[points[Nodes[i].neighbors[j]].tet].velocity;
+            int tet = points[Nodes[i].neighbors[j]].tet;
+            float w = tets[tet].volume;
+            velocity += w*tets[tet].velocity;
+	    weight += w;
         }
-        velocity /= Nodes[i].neighbors.size();
-        nodes[i] += velocity*time;
+        velocity /= weight;
+	float moment = 0;
+        glm::vec3 angular_velocity = glm::vec4(0);
+        for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
+            int tet = points[Nodes[i].neighbors[j]].tet;
+            float m = tets[tet].volume; // moment
+	    glm::vec3 r = glm::vec3(nodes[i]-tets[tet].position);
+            angular_velocity += m*glm::cross(tets[tet].angular_velocity,r);
+	    moment += m;
+        }
+        angular_velocity /= moment;
+        nodes[i] += velocity*time + glm::vec4(angular_velocity,0)*time;
     }
     // calculate forces
     calculateForces();
     // new velocities
     for (uint i = 0; i < tets.size(); i++) {
-        tets[i].velocity *= 1-damping;
         if (tets[i].fixed) continue;
         tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
+	tets[i].angular_velocity += tets[i].torque*time/(2*tets[i].volume); // moment
+        // damping
+        tets[i].velocity *= 1-damping;
+	tets[i].angular_velocity *= 1-damping;
     }
 }
 
 void PeridynamicSystem::calculateForces() {
     // reset forces
-    for (uint i = 0; i < tets.size(); i++) tets[i].force = glm::vec4(0);
+    for (uint i = 0; i < tets.size(); i++) {
+        tets[i].force = glm::vec4(0);
+        tets[i].torque = glm::vec3(0);
+    }
 
     // compute relevant values from deformed positions
     vector<vector<glm::vec4>> vecs(tets.size());
@@ -263,6 +289,7 @@ void PeridynamicSystem::calculateForces() {
     vector<vector<glm::vec4>> dirs(tets.size());
     vector<vector<float>> extensions(tets.size());
     vector<vector<float>> stretches(tets.size());
+    vector<vector<glm::vec3>> orientation_vecs(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
         vecs[i].resize(tets[i].neighbors.size());
@@ -270,6 +297,7 @@ void PeridynamicSystem::calculateForces() {
         dirs[i].resize(tets[i].neighbors.size());
         extensions[i].resize(tets[i].neighbors.size());
         stretches[i].resize(tets[i].neighbors.size());
+	orientation_vecs[i].resize(tets[i].neighbors.size());
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
             glm::vec4 vec = tets[tets[i].neighbors[j]].position - tets[i].position;
@@ -278,6 +306,7 @@ void PeridynamicSystem::calculateForces() {
             float init_length = tets[i].init_lengths[j];
             float extension = length - init_length;
             float stretch = extension / init_length;
+	    glm::vec3 orientation_vec = tets[tets[i].neighbors[j]].orientation - tets[i].orientation;
 	    /*
             if (stretch >= .1) {
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
@@ -293,6 +322,7 @@ void PeridynamicSystem::calculateForces() {
             dirs[i][j] = dir;
             extensions[i][j] = extension;
             stretches[i][j] = stretch;
+	    orientation_vecs[i][j] = orientation_vec;
         }
     }
 
@@ -342,6 +372,13 @@ void PeridynamicSystem::calculateForces() {
             tets[p1].force -= Tp1p2 * tets[p2].volume;
             tets[p2].force += Tp1p2 * tets[p1].volume;
             tets[p2].force -= Tp2p1 * tets[p1].volume;
+	    // Torques
+	    glm::vec3 orientation_vec = orientation_vecs[i][j];
+	    if (glm::length(orientation_vec) == 0.0f) continue;
+	    glm::vec4 init_vec = tets[i].init_vecs[j];
+	    glm::vec3 torque = 0.5f * c * glm::length(orientation_vec) / glm::length(init_vec) * glm::normalize(orientation_vec);
+	    tets[p1].torque += 2.0f * torque * tets[p2].volume;
+	    tets[p2].torque -= 2.0f * torque * tets[p1].volume;
         }
         //tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
     }
@@ -356,7 +393,13 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        tets[triangles[i].tet].force += -1.0f * glm::vec4(n,0) * area;
+	glm::vec3 force = -1.0f * n * area;
+	int tet = triangles[i].tet;
+        tets[tet].force += glm::vec4(force,0);
+	glm::vec4 F = (A + B + C) / 3.0f;
+	glm::vec4 P = tets[tet].position; 
+	glm::vec3 torque = glm::cross(glm::vec3(F-P),force);
+        tets[tet].torque += torque;
     }
 }
 
