@@ -259,31 +259,25 @@ void PeridynamicSystem::calculateForces() {
 
     // compute relevant values from deformed positions
     vector<vector<glm::vec4>> vecs(tets.size());
-    /*
     vector<vector<float>> lengths(tets.size());
     vector<vector<glm::vec4>> dirs(tets.size());
     vector<vector<float>> extensions(tets.size());
     vector<vector<float>> stretches(tets.size());
-    */
 
     for (uint i = 0; i < tets.size(); i++) {
         vecs[i].resize(tets[i].neighbors.size());
-	/*
         lengths[i].resize(tets[i].neighbors.size());
         dirs[i].resize(tets[i].neighbors.size());
         extensions[i].resize(tets[i].neighbors.size());
         stretches[i].resize(tets[i].neighbors.size());
-	*/
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
             glm::vec4 vec = tets[tets[i].neighbors[j]].position - tets[i].position;
-	    /*
             float length = glm::length(vec);
             glm::vec4 dir = vec / length;
             float init_length = tets[i].init_lengths[j];
             float extension = length - init_length;
             float stretch = extension / init_length;
-	    */
 	    /*
             if (stretch >= .1) {
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
@@ -295,36 +289,28 @@ void PeridynamicSystem::calculateForces() {
             }
 	    */
             vecs[i][j] = vec;
-	    /*
             lengths[i][j] = length;
             dirs[i][j] = dir;
             extensions[i][j] = extension;
             stretches[i][j] = stretch;
-	    */
         }
     }
 
     // compute F's
-    std::vector<glm::mat3> Kinvs(tets.size());
-    std::vector<glm::mat3> Fs(tets.size());
-    std::vector<glm::mat3> Ps(tets.size());
+    std::vector<glm::mat3> strains(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
-        glm::mat3 K(0);
-        glm::mat3 F(0);
+        glm::mat3 strain(0);
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
 	    glm::vec3 init_vec = glm::vec3(tets[i].init_vecs[j]);
 	    float volume = tets[tets[i].neighbors[j]].volume;
-	    K += tets[i].weights[j] * glm::outerProduct(init_vec,init_vec) * volume;
-            glm::vec3 vec = glm::vec3(vecs[i][j]);
-	    F += tets[i].weights[j] * glm::outerProduct(vec,init_vec) * volume;
+            glm::vec3 dir = glm::vec3(dirs[i][j]);
+	    float stretch = stretches[i][j];
+	    strain += tets[i].weights[j] * stretch * glm::outerProduct(dir,init_vec) * volume;
 	}
-	Kinvs[i] = glm::inverse(K);
-	Fs[i] = F * Kinvs[i];
-	glm::mat3 I(1.0f);
-	float tr = F[0][0] + F[1][1] + F[2][2] - 3;
-	Ps[i] = mu * (F + glm::transpose(F) - 2.0f * I) + lambda * tr * I;
+	strain *= 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4));
+	strains[i] = strain;
     }
 
     /*
@@ -347,30 +333,60 @@ void PeridynamicSystem::calculateForces() {
     }
     */
 
-    /*
     // compute forces
     for (uint i = 0; i < tets.size(); i++) { 
         int p1 = i;
-        float theta1 = thetas[p1];
+        // float theta1 = thetas[p1];
+        float theta1 = strains[p1][0][0] + strains[p1][1][1] + strains[p1][2][2];
         for (uint j = 0; j < tets[p1].neighbors.size(); j++) {
             if (tets[p1].broken[j]) continue;
             int p2 = tets[p1].neighbors[j];
             if (p2 < p1) continue;
             float weight = tets[p1].weights[j];
             glm::vec4 dir = dirs[i][j];
-            glm::vec4 init_dir = tets[p1].init_dirs[j];
-            float dot = glm::dot(dir,init_dir);
+            glm::vec3 init_dir = glm::vec3(tets[p1].init_dirs[j]);
+            float dot = glm::dot(glm::vec3(dir),init_dir);
             // Tp2p1
+	    /*
             float A_dil = 4.0f * weight * a * dot * theta1;
             float extension = extensions[i][j];
             float A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta1);
             float A = A_dil + A_dev;
+	    */
+            float A_dil = 2.0f * weight * a * dot * theta1;
+            float A_dev = 4.0f * weight * b * glm::dot(glm::vec3(dir),strains[i] * init_dir);
+            float A = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * (A_dil + A_dev);
             glm::vec4 Tp2p1 = 0.5f * A * dir;
+	    /*
+	    if (A_dil > 2 || -A_dil > 2)
+	    {
+	    std::cout << "A_dil " << A_dil << std::endl;
+	    assert(false);
+	    }
+	    if (A_dev > 2 || -A_dev > 2)
+	    {
+	    std::cout << "A_dev " << A_dev << std::endl;
+	    std::cout << glm::to_string(strains[p1]) << std::endl;
+	    std::cout << glm::dot(glm::vec3(dir),strains[i] * init_dir) << std::endl;
+	    std::cout << glm::to_string(dir) << std::endl;
+	    std::cout << glm::to_string(init_dir) << std::endl;
+	    assert(false);
+	    }
+	    */
+	    if(isnan(A)) {
+		    assert(false);
+	    }
             // Tp1p2
-            float theta2 = thetas[p2];
+            // float theta2 = thetas[p2];
+            float theta2 = strains[p2][0][0] + strains[p2][1][1] + strains[p2][2][2];
+	    /*
             A_dil = 4.0f * weight * a * dot * theta2;
             A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta2);
             A = A_dil + A_dev;
+	    */
+            A_dil = 2.0f * weight * a * dot * theta1;
+            A_dev = 4.0f * weight * b * glm::dot(glm::vec3(-dir),strains[i] * -init_dir);
+            A = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * (A_dil + A_dev);
             glm::vec4 Tp1p2 = 0.5f * A * -dir;
             tets[p1].force += Tp2p1 * tets[p2].volume;
             tets[p1].force -= Tp1p2 * tets[p2].volume;
@@ -379,8 +395,8 @@ void PeridynamicSystem::calculateForces() {
         }
         //tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
     }
-    */
 
+    /*
     for (uint i = 0; i < tets.size(); i++) {
         int p1 = i;
         for (uint j = 0; j < tets[p1].neighbors.size(); j++) {
@@ -397,6 +413,7 @@ void PeridynamicSystem::calculateForces() {
             tets[p2].force -= glm::vec4(Tp2p1 * tets[p1].volume, 0.0f);
 	}
     }
+    */
 
     // compute pressure
     for (uint i = 0; i < triangles.size(); i++) {
