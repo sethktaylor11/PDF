@@ -308,8 +308,9 @@ void PeridynamicSystem::calculateForces() {
             glm::vec3 dir = glm::vec3(dirs[i][j]);
 	    float stretch = stretches[i][j];
 	    strain += tets[i].weights[j] * stretch * glm::outerProduct(dir,init_vec) * volume;
+	    strain += tets[i].weights[j] * stretch * glm::outerProduct(init_vec,dir) * volume;
 	}
-	strain *= 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4));
+	strain *= 9.0f / (8.0f * glm::pi<float>() * glm::pow(delta, 4));
 	strains[i] = strain;
     }
 
@@ -354,7 +355,7 @@ void PeridynamicSystem::calculateForces() {
             float A = A_dil + A_dev;
 	    */
             float A_dil = 2.0f * weight * a * dot * theta1;
-            float A_dev = 4.0f * weight * b * glm::dot(glm::vec3(dir),strains[i] * init_dir);
+            float A_dev = 2.0f * weight * b * (glm::dot(glm::vec3(dir),strains[p1] * init_dir) + glm::dot(init_dir,strains[p1] * glm::vec3(dir)));
             float A = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * (A_dil + A_dev);
             glm::vec4 Tp2p1 = 0.5f * A * dir;
 	    /*
@@ -385,7 +386,7 @@ void PeridynamicSystem::calculateForces() {
             A = A_dil + A_dev;
 	    */
             A_dil = 2.0f * weight * a * dot * theta1;
-            A_dev = 4.0f * weight * b * glm::dot(glm::vec3(-dir),strains[i] * -init_dir);
+            A_dev = 2.0f * weight * b * (glm::dot(glm::vec3(-dir),strains[p2] * -init_dir) + glm::dot(-init_dir,strains[p2] * glm::vec3(-dir)));
             A = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * (A_dil + A_dev);
             glm::vec4 Tp1p2 = 0.5f * A * -dir;
             tets[p1].force += Tp2p1 * tets[p2].volume;
