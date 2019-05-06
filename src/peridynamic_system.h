@@ -114,6 +114,7 @@ class Tet {
 	vector<int> nextDoorNeighbors;
 
 	// Roommates
+	vector<int> getCurrentRoommates();
 	bool hasRoommate(int tet);
 	void removeRoommate(int tet);
 	vector<int> roommates;

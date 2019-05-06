@@ -70,6 +70,15 @@ void Tet::removeNextDoorNeighbor(int tet) {
     }
 }
 
+vector<int> Tet::getCurrentRoommates() {
+    vector<int> roommies;
+    if (roommates[0] != -1) roommies.push_back(roommates[0]);
+    if (roommates[1] != -1) roommies.push_back(roommates[1]);
+    if (roommates[2] != -1) roommies.push_back(roommates[2]);
+    if (roommates[3] != -1) roommies.push_back(roommates[3]);
+    return roommies;
+}
+
 bool Tet::hasRoommate(int tet) {
     return tet == roommates[0] || tet == roommates[1]
         || tet == roommates[2] || tet == roommates[3];
@@ -221,15 +230,8 @@ PeridynamicSystem::PeridynamicSystem(
 }
 
 void PeridynamicSystem::calculateNewPositions() {
-    // midway velocity
-    for (uint i = 0; i < tets.size(); i++) {
-        if (tets[i].fixed) continue;
-        tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
-    }
     // new particle positions
     for (uint i = 0; i < tets.size(); i++) {
-        // damping
-        tets[i].velocity *= 1-damping;
         if (tets[i].fixed) continue;
         tets[i].position += tets[i].velocity*time;
     }
@@ -247,9 +249,10 @@ void PeridynamicSystem::calculateNewPositions() {
     calculateForces();
     // new velocities
     for (uint i = 0; i < tets.size(); i++) {
-        tets[i].velocity *= 1-damping;
         if (tets[i].fixed) continue;
-        tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
+        // damping
+        tets[i].velocity *= 1-damping;
+        tets[i].velocity += tets[i].force*time/tets[i].volume;
     }
 }
 
@@ -350,13 +353,35 @@ void PeridynamicSystem::calculateForces() {
     for (uint i = 0; i < triangles.size(); i++) {
         if (triangles[i].boundary != 2) continue;
         glm::uvec3 face = faces[triangles[i].face];
+	int tet = triangles[i].tet;
+	vector<int> roommates = tets[tet].getCurrentRoommates();
+	if (roommates.size() < 2) continue;
+	int tet2 = roommates[0];
+	int tet3 = roommates[1];
         glm::vec4 A = nodes[face[0]];
         glm::vec4 B = nodes[face[1]];
         glm::vec4 C = nodes[face[2]];
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        tets[triangles[i].tet].force += -1.0f * glm::vec4(n,0) * area;
+	glm::vec3 force = -1.0f * n * area;
+        //tets[tet].force += glm::vec4(force,0);
+	glm::vec4 F = (A + B + C)/3.0f;
+	glm::vec4 P3 = tets[tet3].position;
+	glm::vec3 r5 = glm::vec3(P3 - tets[tet].position);
+	glm::vec3 r6 = glm::vec3(P3 - tets[tet2].position);
+	glm::vec3 r3 = glm::vec3(P3 - F);
+	glm::mat3 solver = glm::mat3(r5, r6, F);
+	glm::vec3 res = glm::inverse(solver) * r3;
+	float a = res[0];
+	float b = res[1];
+	float c = 1 - a - b;
+	tets[tet].force += a * glm::vec4(force, 0);
+	tets[tet2].force += b * glm::vec4(force, 0);
+	tets[tet3].force += c * glm::vec4(force, 0);
+	std::cout << a << std::endl;
+	std::cout << b << std::endl;
+	assert(false);
     }
 }
 
