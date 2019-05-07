@@ -177,7 +177,7 @@ class PeridynamicSystem {
         TicTocTimer t = tic();
 
 	// Constants
-        float time = 0.015f;
+        float time = 0.025f;
         float delta = 0.6f;
         float a = 10.0f;
         float b = 10.0f;

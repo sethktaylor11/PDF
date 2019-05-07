@@ -3,6 +3,7 @@
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
+#include <Eigen/Dense>
 
 using namespace std;
 
@@ -351,37 +352,91 @@ void PeridynamicSystem::calculateForces() {
 
     // compute pressure
     for (uint i = 0; i < triangles.size(); i++) {
+        // determine if the triangle is an interior face
         if (triangles[i].boundary != 2) continue;
+
         glm::uvec3 face = faces[triangles[i].face];
 	int tet = triangles[i].tet;
 	vector<int> roommates = tets[tet].getCurrentRoommates();
-	if (roommates.size() < 2) continue;
+
+	// determine if the tet has 3 roommates
+	if (roommates.size() < 3) continue;
+
 	int tet2 = roommates[0];
 	int tet3 = roommates[1];
-        glm::vec4 A = nodes[face[0]];
+	int tet4 = roommates[2];
+
+	glm::vec3 p1 = glm::vec3(tets[tet].position);
+	glm::vec3 p2 = glm::vec3(tets[tet2].position);
+	glm::vec3 p3 = glm::vec3(tets[tet3].position);
+	glm::vec3 p4 = glm::vec3(tets[tet4].position);
+	Eigen::Vector3f P1(p1[0],p1[1],p1[2]);
+	Eigen::Vector3f P2(p2[0],p2[1],p2[2]);
+	Eigen::Vector3f P3(p3[0],p3[1],p3[2]);
+	Eigen::Vector3f P4(p4[0],p4[1],p4[2]);
+
+	Eigen::Vector3f zero(0,0,0);
+	glm::vec3 v1 = glm::vec3(tets[tet].velocity);
+	glm::vec3 v2 = glm::vec3(tets[tet2].velocity);
+	glm::vec3 v3 = glm::vec3(tets[tet3].velocity);
+	glm::vec3 v4 = glm::vec3(tets[tet4].velocity);
+	Eigen::Vector3f V1(v1[0],v1[1],v1[2]);
+	Eigen::Vector3f V2(v2[0],v2[1],v2[2]);
+	Eigen::Vector3f V3(v3[0],v3[1],v3[2]);
+	Eigen::Vector3f V4(v4[0],v4[1],v4[2]);
+	Eigen::MatrixXf V(3,5);
+	V << V1, V2, V3, V4, zero;
+
+	Eigen::MatrixXf Minv(5,5);
+	Minv.setZero();
+	Minv(0,0) = 1 / tets[tet].volume;
+	Minv(1,1) = 1 / tets[tet2].volume;
+	Minv(2,2) = 1 / tets[tet3].volume;
+	Minv(3,3) = 1 / tets[tet4].volume;
+
+        glm::vec4 AA = nodes[face[0]];
         glm::vec4 B = nodes[face[1]];
         glm::vec4 C = nodes[face[2]];
-        glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
+
+	// calculate face normal
+        glm::vec3 N = glm::cross(glm::vec3(B-AA),glm::vec3(C-AA));
         glm::vec3 n = glm::normalize(N);
+
+	// calculate force due to pressure
         float area = glm::length(N)/2;
 	glm::vec3 force = -1.0f * n * area;
-        //tets[tet].force += glm::vec4(force,0);
-	glm::vec4 F = (A + B + C)/3.0f;
-	glm::vec4 P3 = tets[tet3].position;
-	glm::vec3 r5 = glm::vec3(P3 - tets[tet].position);
-	glm::vec3 r6 = glm::vec3(P3 - tets[tet2].position);
-	glm::vec3 r3 = glm::vec3(P3 - F);
-	glm::mat3 solver = glm::mat3(r5, r6, F);
-	glm::vec3 res = glm::inverse(solver) * r3;
-	float a = res[0];
-	float b = res[1];
-	float c = 1 - a - b;
+
+	glm::vec4 F = (AA + B + C)/3.0f;
+	Eigen::Vector3f P(F[0],F[1],F[2]);
+
+        Eigen::Vector3f Force(force[0],force[1],force[2]);
+	Eigen::VectorXf c = time * V.transpose() * Force;
+	Eigen::MatrixXf Q = time * time * Force.dot(Force) * Minv;
+
+	Eigen::MatrixXf E(4,5);
+	E << 1, 1, 1, 1, 0,
+		P1 - P4, P2 - P4, P3 - P4, zero, Force;
+	Eigen::Vector4f d;
+        d << 1, P - P4;
+
+	Eigen::MatrixXf Zero(4,4);
+	Zero.setZero();
+	Eigen::MatrixXf A(9,9);
+        A << Q, E.transpose(), E, Zero;
+
+	Eigen::VectorXf b(9);
+	b << -c, d;
+
+	Eigen::VectorXf x = A.inverse() * b;
+
+	float a = x(0);
+	float bb = x(1);
+	float cc = x(2);
+	float dd = x(3);
 	tets[tet].force += a * glm::vec4(force, 0);
-	tets[tet2].force += b * glm::vec4(force, 0);
-	tets[tet3].force += c * glm::vec4(force, 0);
-	std::cout << a << std::endl;
-	std::cout << b << std::endl;
-	assert(false);
+	tets[tet2].force += bb * glm::vec4(force, 0);
+	tets[tet3].force += cc * glm::vec4(force, 0);
+	tets[tet4].force += dd * glm::vec4(force, 0);
     }
 }
 
