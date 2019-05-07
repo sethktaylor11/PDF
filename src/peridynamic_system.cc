@@ -410,8 +410,8 @@ void PeridynamicSystem::calculateForces() {
 	Eigen::Vector3f P(F[0],F[1],F[2]);
 
         Eigen::Vector3f Force(force[0],force[1],force[2]);
-	Eigen::VectorXf c = time * V.transpose() * Force;
-	Eigen::MatrixXf Q = time * time * Force.dot(Force) * Minv;
+	Eigen::VectorXf c = V.transpose() * Force;
+	Eigen::MatrixXf Q = time * Force.dot(Force) * Minv;
 
 	Eigen::MatrixXf E(4,5);
 	E << 1, 1, 1, 1, 0,
