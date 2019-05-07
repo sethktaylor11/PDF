@@ -1,4 +1,5 @@
 #include "peridynamic_system.h"
+#include "VectorMath.h"
 #include <iostream>
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -384,15 +385,37 @@ void PeridynamicSystem::calculateForces() {
 	Eigen::Vector3f V2(v2[0],v2[1],v2[2]);
 	Eigen::Vector3f V3(v3[0],v3[1],v3[2]);
 	Eigen::Vector3f V4(v4[0],v4[1],v4[2]);
-	Eigen::MatrixXf V(3,5);
-	V << V1, V2, V3, V4, zero;
+	//Eigen::MatrixXf V(3,5);
+	Eigen::VectorXf V(12);
+	//V << V1, V2, V3, V4, zero;
+	V << V1, V2, V3, V4;
 
+	/*
 	Eigen::MatrixXf Minv(5,5);
 	Minv.setZero();
 	Minv(0,0) = 1 / tets[tet].volume;
 	Minv(1,1) = 1 / tets[tet2].volume;
 	Minv(2,2) = 1 / tets[tet3].volume;
 	Minv(3,3) = 1 / tets[tet4].volume;
+	*/
+	Eigen::MatrixXf Minv(12,12);
+	Minv.setZero();
+	float m1inv = 1 / tets[tet].volume;
+	Minv(0,0) = m1inv;
+	Minv(1,1) = m1inv;
+	Minv(2,2) = m1inv;
+	float m2inv = 1 / tets[tet2].volume;
+	Minv(3,3) = m2inv;
+	Minv(4,4) = m2inv;
+	Minv(5,5) = m2inv;
+	float m3inv = 1 / tets[tet3].volume;
+	Minv(6,6) = m3inv;
+	Minv(7,7) = m3inv;
+	Minv(8,8) = m3inv;
+	float m4inv = 1 / tets[tet4].volume;
+	Minv(9,9) = m4inv;
+	Minv(10,10) = m4inv;
+	Minv(11,11) = m4inv;
 
         glm::vec4 AA = nodes[face[0]];
         glm::vec4 B = nodes[face[1]];
@@ -410,25 +433,63 @@ void PeridynamicSystem::calculateForces() {
 	Eigen::Vector3f P(F[0],F[1],F[2]);
 
         Eigen::Vector3f Force(force[0],force[1],force[2]);
+	/*
 	Eigen::VectorXf c = V.transpose() * Force;
 	Eigen::MatrixXf Q = time * Force.dot(Force) * Minv;
+	*/
+	Eigen::VectorXf c = V;
+	Eigen::MatrixXf Q = time * Minv;
 
+	Eigen::Vector3f R1 = P1-P;
+	Eigen::Vector3f R2 = P2-P;
+	Eigen::Vector3f R3 = P3-P;
+	Eigen::Vector3f R4 = P4-P;
+	Eigen::Matrix3f cp1;
+	cp1 << 0, -R1[2], R1[1],
+	     R1[2], 0, -R1[0],
+	     -R1[1], R1[0], 0;
+	Eigen::Matrix3f cp2;
+	cp2 << 0, -R2[2], R2[1],
+	     R2[2], 0, -R2[0],
+	     -R2[1], R2[0], 0;
+	Eigen::Matrix3f cp3;
+	cp3 << 0, -R3[2], R3[1],
+	     R3[2], 0, -R3[0],
+	     -R3[1], R3[0], 0;
+	Eigen::Matrix3f cp4;
+	cp4 << 0, -R4[2], R4[1],
+	     R4[2], 0, -R4[0],
+	     -R4[1], R4[0], 0;
+	/*
 	Eigen::MatrixXf E(4,5);
 	E << 1, 1, 1, 1, 0,
 		P1 - P4, P2 - P4, P3 - P4, zero, Force;
 	Eigen::Vector4f d;
         d << 1, P - P4;
+	*/
+	Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
+	Eigen::MatrixXf E(6,12);
+	E << I, I, I, I,
+            cp1, cp2, cp3, cp4;
+	Eigen::VectorXf d(6);
+	d << Force, 0, 0, 0;
 
+	/*
 	Eigen::MatrixXf Zero(4,4);
 	Zero.setZero();
 	Eigen::MatrixXf A(9,9);
+	*/
+	Eigen::MatrixXf Zero(6,6);
+	Zero.setZero();
+	Eigen::MatrixXf A(18,18);
         A << Q, E.transpose(), E, Zero;
 
-	Eigen::VectorXf b(9);
+	Eigen::VectorXf b(18);
 	b << -c, d;
 
 	Eigen::VectorXf x = A.inverse() * b;
 
+	/*
 	float a = x(0);
 	float bb = x(1);
 	float cc = x(2);
@@ -437,6 +498,15 @@ void PeridynamicSystem::calculateForces() {
 	tets[tet2].force += bb * glm::vec4(force, 0);
 	tets[tet3].force += cc * glm::vec4(force, 0);
 	tets[tet4].force += dd * glm::vec4(force, 0);
+	glm::vec4 f1 = glm::vec4(x[0],x[1],x[2], 0);
+	glm::vec4 f2 = glm::vec4(x[3],x[4],x[5], 0);
+	glm::vec4 f3 = glm::vec4(x[6],x[7],x[8], 0);
+	glm::vec4 f4 = glm::vec4(x[9],x[10],x[11], 0);
+	*/
+	tets[tet].force += glm::vec4(x[0],x[1],x[2], 0);
+	tets[tet2].force += glm::vec4(x[3],x[4],x[5], 0);
+	tets[tet3].force += glm::vec4(x[6],x[7],x[8], 0);
+	tets[tet4].force += glm::vec4(x[9],x[10],x[11], 0);
     }
 }
 
