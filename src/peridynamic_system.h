@@ -88,6 +88,7 @@ class Tet {
         Tet() {};
 
 	// Tet
+	void applyForceDensity(glm::vec4 fd);
 	glm::vec4 position;
         glm::vec4 velocity;
 	glm::vec4 force;
@@ -170,6 +171,8 @@ class PeridynamicSystem {
         // Rendered
 	
 	// Nodes
+	float getWeight(int node);
+	void applyForceNode(int node, glm::vec4 force);
         bool hasNeighbor(int node, int tet);
         vector<Node> Nodes;
 

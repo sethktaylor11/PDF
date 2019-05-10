@@ -58,6 +58,10 @@ Tet::Tet(
     points[3] = point_index+3;
 }
 
+void Tet::applyForceDensity(glm::vec4 fd) {
+    force += fd * volume;
+}
+
 bool Tet::hasNextDoorNeighbor(int tet) {
     return std::find(nextDoorNeighbors.begin(), nextDoorNeighbors.end(), tet) != nextDoorNeighbors.end();
 }
@@ -351,8 +355,10 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-	glm::vec3 force = -1.0f * n * area;
-	tets[tet].force += force;
+	glm::vec4 force = -1.0f * glm::vec4(n,0) * area;
+	applyForceNode(face[0],force/3);
+	applyForceNode(face[1],force/3);
+	applyForceNode(face[2],force/3);
     }
 }
 
@@ -534,6 +540,24 @@ void PeridynamicSystem::duplicatePointNode(int p) {
 // Rendered
 
 // Nodes
+
+float PeridynamicSystem::getWeight(int node) {
+    float weight = 0.0f;
+    for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
+        int tet = points[Nodes[node].neighbors].tet;
+	weight += tets[tet].volume;
+    }
+    return weight;
+}
+
+void PeridyanmicSystem::applyForceNode(int node, glm::vec4 force) {
+    float weight = getWeight(node);
+    glm::vec4 fd = force / weight;
+    for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
+        int tet = points[Nodes[node].neighbors].tet;
+	tets[tet].applyForceDensity(fd);
+    }
+}
 
 bool PeridynamicSystem::hasNeighbor(int node, int tet) {
     for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
