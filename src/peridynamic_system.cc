@@ -351,8 +351,8 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        glm::vec3 force = -1.0f * n * area;
-        tets[tet].force += glm::vec4(force,0);
+	glm::vec3 force = -1.0f * n * area;
+	tets[tet].force += force;
     }
 }
 
