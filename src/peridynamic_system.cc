@@ -3,6 +3,7 @@
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
+#include <Eigen/Dense>
 
 using namespace std;
 
