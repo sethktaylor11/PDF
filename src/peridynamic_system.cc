@@ -221,15 +221,8 @@ PeridynamicSystem::PeridynamicSystem(
 }
 
 void PeridynamicSystem::calculateNewPositions() {
-    // midway velocity
-    for (uint i = 0; i < tets.size(); i++) {
-        if (tets[i].fixed) continue;
-        tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
-    }
     // new particle positions
     for (uint i = 0; i < tets.size(); i++) {
-        // damping
-        tets[i].velocity *= 1-damping;
         if (tets[i].fixed) continue;
         tets[i].position += tets[i].velocity*time;
     }
@@ -247,9 +240,10 @@ void PeridynamicSystem::calculateNewPositions() {
     calculateForces();
     // new velocities
     for (uint i = 0; i < tets.size(); i++) {
-        tets[i].velocity *= 1-damping;
         if (tets[i].fixed) continue;
-        tets[i].velocity += tets[i].force*time/(2*tets[i].volume);
+        // damping
+        tets[i].velocity *= 1-damping;
+        tets[i].velocity += tets[i].force*time/tets[i].volume;
     }
 }
 
@@ -356,7 +350,8 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 N = glm::cross(glm::vec3(B-A),glm::vec3(C-A));
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
-        tets[triangles[i].tet].force += -1.0f * glm::vec4(n,0) * area;
+        glm::vec3 force = -1.0f * n * area;
+        tets[tet].force += glm::vec4(force,0);
     }
 }
 
