@@ -79,8 +79,8 @@ class Tet {
     public:
         // Constructors
         Tet(
-                glm::vec4 pos,
-		float vol,
+                glm::dvec4 pos,
+		double vol,
 		bool fixed,
 		int index,
 		vector<int> roommates
@@ -88,11 +88,11 @@ class Tet {
         Tet() {};
 
 	// Tet
-	void applyForceDensity(glm::vec4 fd);
-	glm::vec4 position;
-        glm::vec4 velocity;
-	glm::vec4 force;
-        float volume;
+	void applyForceDensity(glm::dvec4 fd);
+	glm::dvec4 position;
+        glm::dvec4 velocity;
+	glm::dvec4 force;
+        double volume;
 	bool fixed;
 
 	// Triangles
@@ -104,10 +104,10 @@ class Tet {
 	// Neighbors
         vector<int> neighbors; 
         vector<bool> broken;
-        vector<glm::vec4> init_vecs;
-        vector<float> init_lengths;
-        vector<glm::vec4> init_dirs;
-        vector<float> weights;
+        vector<glm::dvec4> init_vecs;
+        vector<double> init_lengths;
+        vector<glm::dvec4> init_dirs;
+        vector<double> weights;
 
 	// Next-door Neighbors
 	bool hasNextDoorNeighbor(int tet);
@@ -127,7 +127,7 @@ class PeridynamicSystem {
     public:
         // Constructors
         PeridynamicSystem(
-                vector<glm::vec4> nodes,
+                vector<glm::dvec4> nodes,
                 vector<bool> fixedNodes,
                 vector<vector<int>> points,
                 vector<int> boundary,
@@ -138,7 +138,7 @@ class PeridynamicSystem {
         PeridynamicSystem() {};
 
         void calculateNewPositions();
-        vector<glm::vec4> nodes;
+        vector<glm::dvec4> nodes;
         vector<glm::uvec3> faces;
     private:
         void calculateForces();
@@ -171,19 +171,19 @@ class PeridynamicSystem {
         // Rendered
 	
 	// Nodes
-	float getWeight(int node);
-	void applyForceNode(int node, glm::vec4 force);
+	double getWeight(int node);
+	void applyForceNode(int node, glm::dvec4 force);
         bool hasNeighbor(int node, int tet);
         vector<Node> Nodes;
 
         TicTocTimer t = tic();
 
 	// Constants
-        float time = 0.015f;
-        float delta = 0.6f;
-        float a = 10.0f;
-        float b = 10.0f;
-        float damping = 0.001f;
+        double time = 0.015;
+        double delta = 0.6;
+        double a = 10.0;
+        double b = 10.0;
+        double damping = 0.001;
 };
 
 #endif

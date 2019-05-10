@@ -81,7 +81,7 @@ GLFWwindow* init_glefw()
     return ret;
 }
 
-void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
+void readNodes(vector<glm::dvec4>& nodes, vector<bool>& fixedNodes) {
     ifstream nodesFile;
     nodesFile.open("tank2.1.node");
     int nP, d, nAN, nBN;
@@ -89,11 +89,11 @@ void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
     nodes.resize(nP);
     fixedNodes.resize(nP);
     int p;
-    float x, y, z;
+    double x, y, z;
     for (int i = 0; i < nP; i++) {
         nodesFile >> p >> x >> y >> z;
-        nodes[p] = glm::vec4(x,y,z,1);
-        if (x == -4.0f) fixedNodes[p] = true;
+        nodes[p] = glm::dvec4(x,y,z,1);
+        if (x == -4.0) fixedNodes[p] = true;
     }
 }
 
@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
 
     // Read Nodes
 
-    vector<glm::vec4> nodes;
+    vector<glm::dvec4> nodes;
     vector<bool> fixedNodes;
     readNodes(nodes, fixedNodes);
 
@@ -278,8 +278,12 @@ int main(int argc, char* argv[])
             { "fragment_color" }
             );
 
+    vector<glm::vec4> nodes_float(nodes.size());
+    for (uint i = 0; i < nodes.size(); i++) {
+	    nodes_float[i] = glm::vec4(nodes[i]);
+    }
     RenderDataInput box_pass_input;
-    box_pass_input.assign(0, "vertex_position", nodes.data(), nodes.size(), 4, GL_FLOAT);
+    box_pass_input.assign(0, "vertex_position", nodes_float.data(), nodes_float.size(), 4, GL_FLOAT);
     box_pass_input.assignIndex(ps->faces.data(), ps->faces.size(), 3);
     RenderPass box_pass(-1, box_pass_input,
             { box_vertex_shader, box_geometry_shader, box_fragment_shader},
@@ -315,7 +319,11 @@ int main(int argc, char* argv[])
 
         ps->calculateNewPositions();
 
-	box_pass.updateVBO(0, ps->nodes.data(), ps->nodes.size());
+	nodes_float.resize(ps->nodes.size());
+	for (uint i = 0; i < ps->nodes.size(); i++) {
+	    nodes_float[i] = glm::vec4(ps->nodes[i]);
+	}
+	box_pass.updateVBO(0, nodes_float.data(), nodes_float.size());
 	box_pass.updateIndex(ps->faces.data(), ps->faces.size());
 
         box_pass.setup();
