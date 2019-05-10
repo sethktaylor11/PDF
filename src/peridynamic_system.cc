@@ -233,12 +233,13 @@ void PeridynamicSystem::calculateNewPositions() {
     }
     // new node positions
     for (uint i = 0; i < nodes.size(); i++) {
-        // TODO needs weights and masses
         glm::vec4 velocity = glm::vec4(0);
+	float weight = getWeight(i);
         for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
-            velocity += tets[points[Nodes[i].neighbors[j]].tet].velocity;
+            int tet = points[Nodes[i].neighbors[j]].tet;
+            velocity += tets[tet].volume * tets[tet].velocity;
         }
-        velocity /= Nodes[i].neighbors.size();
+        velocity /= weight;
         nodes[i] += velocity*time;
     }
     // calculate forces
