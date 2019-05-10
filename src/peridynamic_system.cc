@@ -356,9 +356,9 @@ void PeridynamicSystem::calculateForces() {
         glm::vec3 n = glm::normalize(N);
         float area = glm::length(N)/2;
 	glm::vec4 force = -1.0f * glm::vec4(n,0) * area;
-	applyForceNode(face[0],force/3);
-	applyForceNode(face[1],force/3);
-	applyForceNode(face[2],force/3);
+	applyForceNode(face[0],force/3.0f);
+	applyForceNode(face[1],force/3.0f);
+	applyForceNode(face[2],force/3.0f);
     }
 }
 
@@ -544,17 +544,17 @@ void PeridynamicSystem::duplicatePointNode(int p) {
 float PeridynamicSystem::getWeight(int node) {
     float weight = 0.0f;
     for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
-        int tet = points[Nodes[node].neighbors].tet;
+        int tet = points[Nodes[node].neighbors[i]].tet;
 	weight += tets[tet].volume;
     }
     return weight;
 }
 
-void PeridyanmicSystem::applyForceNode(int node, glm::vec4 force) {
+void PeridynamicSystem::applyForceNode(int node, glm::vec4 force) {
     float weight = getWeight(node);
     glm::vec4 fd = force / weight;
     for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
-        int tet = points[Nodes[node].neighbors].tet;
+        int tet = points[Nodes[node].neighbors[i]].tet;
 	tets[tet].applyForceDensity(fd);
     }
 }
