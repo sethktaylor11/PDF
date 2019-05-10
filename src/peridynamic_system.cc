@@ -3,9 +3,11 @@
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
-#include <Eigen/Dense>
+#include <math.h>
+#include <Eigen/Sparse>
 
 using namespace std;
+typedef Eigen::Triplet<double> T;
 
 // Rendered
 
@@ -44,13 +46,14 @@ Triangle::Triangle(
 // Tet
 
 Tet::Tet(
-        glm::vec4 pos,
-        float vol,
+        Eigen::Vector3d pos,
+        double vol,
         bool fixed,
         int point_index,
         vector<int> roommates
         ) : position(pos), volume(vol), fixed(fixed), points(4),
-    roommates(roommates), velocity(glm::vec4(0)), force(glm::vec4(0))
+    roommates(roommates), velocity(Eigen::Vector3d(0.0,0.0,0.0)),
+    force(Eigen::Vector3d(0.0,0.0,0.0))
 {
     points[0] = point_index;
     points[1] = point_index+1;
@@ -102,10 +105,14 @@ PeridynamicSystem::PeridynamicSystem(
         vector<vector<int>> tris,
         vector<vector<int>> neighbors,
 	vector<vector<int>> roommates
-        ) : nodes(nodes), tets(eles.size(), Tet()),
-    triangles(eles.size()*3, Triangle()), points(eles.size()*4, Point()),
-    Nodes(nodes.size(), Node())
+        ) : tets(eles.size(), Tet()), triangles(eles.size()*3, Triangle()),
+    points(eles.size()*4, Point()), Nodes(nodes.size(), Node())
 {
+    for (uint i = 0; i < nodes.size(); i++) {
+        glm::vec4 pos = nodes[i];
+        Nodes[i].position = Eigen::Vector3d(pos[0],pos[1],pos[2]);
+    }
+
     for (uint i = 0; i < eles.size(); i++) {
         vector<int> ele = eles[i];
         int A = ele[0];
@@ -121,24 +128,28 @@ PeridynamicSystem::PeridynamicSystem(
 	points[point_index+1].tet = i;
 	points[point_index+2].tet = i;
 	points[point_index+3].tet = i;
-        glm::vec4 a = nodes[A];
-        glm::vec4 b = nodes[B];
-        glm::vec4 c = nodes[C];
-        glm::vec4 d = nodes[D];
-	glm::vec4 position = (a + b + c + d) / 4.0f;
-        float volume = glm::dot(glm::vec3(b-a),glm::cross(glm::vec3(c-a),glm::vec3(d-a)))/6;
+        glm::dvec4 a_vec = nodes[A];
+        glm::dvec4 b_vec = nodes[B];
+        glm::dvec4 c_vec = nodes[C];
+        glm::dvec4 d_vec = nodes[D];
+	Eigen::Vector3d a(a_vec[0],a_vec[1],a_vec[2]);
+	Eigen::Vector3d b(b_vec[0],b_vec[1],b_vec[2]);
+	Eigen::Vector3d c(c_vec[0],c_vec[1],c_vec[2]);
+	Eigen::Vector3d d(d_vec[0],d_vec[1],d_vec[2]);
+	Eigen::Vector3d position = (a + b + c + d) / 4.0;
+        double volume = (b-a).dot((c-a).cross(d-a))/6;
 	bool fixed = false;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
 	tets[i] = Tet(position, volume, fixed, point_index, roommates[i]);
     }
 
     for (uint i = 0; i < Nodes.size(); i++) {
-	    for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
-		    int p = Nodes[i].neighbors[j];
-		    points[p].node = i;
-		    points[p].neighbors = Nodes[i].neighbors;
-		    points[p].neighbors.erase(points[p].neighbors.begin()+j);
-	    }
+        for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
+            int p = Nodes[i].neighbors[j];
+            points[p].node = i;
+            points[p].neighbors = Nodes[i].neighbors;
+            points[p].neighbors.erase(points[p].neighbors.begin()+j);
+        }
     }
 
     for (uint i = 0; i < Nodes.size(); i++) {
@@ -185,10 +196,10 @@ PeridynamicSystem::PeridynamicSystem(
     }
 
     for (uint i = 0; i < tets.size()-1; i++) {
-        glm::vec4 pos = tets[i].position;
+        Eigen::Vector3d pos = tets[i].position;
         for (uint j = i+1; j < tets.size(); j++) {
-            glm::vec4 vec = tets[j].position - pos;
-            float length = glm::length(vec);
+	    Eigen::Vector3d vec = tets[j].position - pos;
+	    double length = vec.norm();
             if (length < delta) {
                 tets[i].neighbors.push_back(j);
                 tets[j].neighbors.push_back(i);
@@ -196,10 +207,10 @@ PeridynamicSystem::PeridynamicSystem(
                 tets[j].init_vecs.push_back(-vec);
                 tets[i].init_lengths.push_back(length);
                 tets[j].init_lengths.push_back(length);
-                glm::vec4 dir = vec / length;
+		Eigen::Vector3d dir = vec.normalized();
                 tets[i].init_dirs.push_back(dir);
                 tets[j].init_dirs.push_back(-dir);
-                float weight = delta / length;
+                double weight = delta / length;
                 tets[i].weights.push_back(weight);
                 tets[j].weights.push_back(weight);
             }
@@ -209,19 +220,19 @@ PeridynamicSystem::PeridynamicSystem(
     tets[tets.size()-1].broken.resize(tets[tets.size()-1].neighbors.size(),false);
 
     for (uint i = 0; i < tets.size(); i++) {
-        glm::vec4 pos = tets[i].position;
+        Eigen::Vector3d pos = tets[i].position;
 	for (uint j = 0; j < 4; j++) {
             int tet2 = tets[i].roommates[j];
             if (tet2 == -1) continue;
-	    glm::vec4 vec = tets[tet2].position - pos;
-	    float length = glm::length(vec);
+	    Eigen::Vector3d vec = tets[tet2].position - pos;
+	    double length = vec.norm();
 	    if (length >= delta) splitRoommates(i,tet2);
 	}
 	for (uint j = 0; j < tets[i].nextDoorNeighbors.size(); j++) {
             int tet2 = tets[i].nextDoorNeighbors[j];
             if (tet2 == -1) continue;
-	    glm::vec4 vec = tets[tet2].position - pos;
-	    float length = glm::length(vec);
+	    Eigen::Vector3d vec = tets[tet2].position - pos;
+	    double length = vec.norm();
 	    if (length >= delta) {
 		    splitNextDoorNeighbors(i,tet2);
 		    j--;
@@ -230,25 +241,33 @@ PeridynamicSystem::PeridynamicSystem(
     }
 }
 
-void PeridynamicSystem::calculateNewPositions() {
+vector<glm::vec4> PeridynamicSystem::getNodes() {
+    vector<glm::vec4> nodes(Nodes.size());
+    for (uint i = 0; i < Nodes.size(); i++) {
+        Eigen::Vector3d pos = Nodes[i].position;
+	nodes[i] = glm::vec4(float(pos[0]),float(pos[1]),float(pos[2]),1);
+    }
+    return nodes;
+}
+
+vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
     // new particle positions
     for (uint i = 0; i < tets.size(); i++) {
         if (tets[i].fixed) continue;
         tets[i].position += tets[i].velocity*time;
     }
     // new node positions
-    for (uint i = 0; i < nodes.size(); i++) {
-        // TODO needs weights and masses
-        glm::vec4 velocity = glm::vec4(0);
-	float weight = 0;
+    for (uint i = 0; i < Nodes.size(); i++) {
+        Eigen::Vector3d velocity;
+	double weight = 0;
         for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
             int tet = points[Nodes[i].neighbors[j]].tet;
-	    float w = tets[tet].volume;
+	    double w = tets[tet].volume;
             velocity += w * tets[tet].velocity;
 	    weight += w;
         }
         velocity /= weight;
-        nodes[i] += velocity*time;
+        Nodes[i].position += velocity*time;
     }
     // calculate forces
     calculateForces();
@@ -259,18 +278,19 @@ void PeridynamicSystem::calculateNewPositions() {
         tets[i].velocity *= 1-damping;
         tets[i].velocity += tets[i].force*time/tets[i].volume;
     }
+    return getNodes();
 }
 
 void PeridynamicSystem::calculateForces() {
     // reset forces
-    for (uint i = 0; i < tets.size(); i++) tets[i].force = glm::vec4(0);
+    for (uint i = 0; i < tets.size(); i++) tets[i].force = Eigen::Vector3d(0.0,0.0,0.0);
 
     // compute relevant values from deformed positions
-    vector<vector<glm::vec4>> vecs(tets.size());
-    vector<vector<float>> lengths(tets.size());
-    vector<vector<glm::vec4>> dirs(tets.size());
-    vector<vector<float>> extensions(tets.size());
-    vector<vector<float>> stretches(tets.size());
+    vector<vector<Eigen::Vector3d>> vecs(tets.size());
+    vector<vector<double>> lengths(tets.size());
+    vector<vector<Eigen::Vector3d>> dirs(tets.size());
+    vector<vector<double>> extensions(tets.size());
+    vector<vector<double>> stretches(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
         vecs[i].resize(tets[i].neighbors.size());
@@ -280,12 +300,12 @@ void PeridynamicSystem::calculateForces() {
         stretches[i].resize(tets[i].neighbors.size());
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
-            glm::vec4 vec = tets[tets[i].neighbors[j]].position - tets[i].position;
-            float length = glm::length(vec);
-            glm::vec4 dir = vec / length;
-            float init_length = tets[i].init_lengths[j];
-            float extension = length - init_length;
-            float stretch = extension / init_length;
+	    Eigen::Vector3d vec = tets[tets[i].neighbors[j]].position - tets[i].position;
+            double length = vec.norm();
+	    Eigen::Vector3d dir = vec.normalized();
+            double init_length = tets[i].init_lengths[j];
+            double extension = length - init_length;
+            double stretch = extension / init_length;
 	    /*
             if (stretch >= .1) {
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
@@ -305,53 +325,53 @@ void PeridynamicSystem::calculateForces() {
     }
 
     // compute dilatations
-    vector<float> thetas(tets.size());
+    vector<double> thetas(tets.size());
 
     for (uint i = 0; i < tets.size(); i++) {
-        float sum = 0.0f;
+        double sum = 0.0;
         for (uint j = 0; j < tets[i].neighbors.size(); j++) {
             if (tets[i].broken[j]) continue;
             int k = tets[i].neighbors[j];
-            float weight = tets[i].weights[j];
-            glm::vec4 init_vec = tets[i].init_vecs[j];
-            glm::vec4 dir = dirs[i][j];
-            float stretch = stretches[i][j];
-            sum += weight * stretch * glm::dot(dir,init_vec) * tets[k].volume;
+            double weight = tets[i].weights[j];
+	    Eigen::Vector3d init_vec = tets[i].init_vecs[j];
+            Eigen::Vector3d dir = dirs[i][j];
+            double stretch = stretches[i][j];
+            sum += weight * stretch * dir.dot(init_vec) * tets[k].volume;
         }
-        float theta = 9.0f / (4.0f * glm::pi<float>() * glm::pow(delta, 4)) * sum;
+        double theta = 9.0 / (4.0 * glm::pi<double>() * pow(delta, 4)) * sum;
         thetas[i] = theta;
     }
 
     // compute forces
     for (uint i = 0; i < tets.size(); i++) { 
         int p1 = i;
-        float theta1 = thetas[p1];
+        double theta1 = thetas[p1];
         for (uint j = 0; j < tets[p1].neighbors.size(); j++) {
             if (tets[p1].broken[j]) continue;
             int p2 = tets[p1].neighbors[j];
             if (p2 < p1) continue;
-            float weight = tets[p1].weights[j];
-            glm::vec4 dir = dirs[i][j];
-            glm::vec4 init_dir = tets[p1].init_dirs[j];
-            float dot = glm::dot(dir,init_dir);
+            double weight = tets[p1].weights[j];
+	    Eigen::Vector3d dir = dirs[i][j];
+	    Eigen::Vector3d init_dir = tets[p1].init_dirs[j];
+            double dot = dir.dot(init_dir);
             // Tp2p1
-            float A_dil = 4.0f * weight * a * dot * theta1;
-            float extension = extensions[i][j];
-            float A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta1);
-            float A = A_dil + A_dev;
-            glm::vec4 Tp2p1 = 0.5f * A * dir;
+            double A_dil = 4.0 * weight * a * dot * theta1;
+            double extension = extensions[i][j];
+            double A_dev = 4.0 * weight * b * (extension - delta / 4.0 * dot * theta1);
+            double A = A_dil + A_dev;
+	    Eigen::Vector3d Tp2p1 = 0.5 * A * dir;
             // Tp1p2
-            float theta2 = thetas[p2];
-            A_dil = 4.0f * weight * a * dot * theta2;
-            A_dev = 4.0f * weight * b * (extension - delta / 4.0f * dot * theta2);
+            double theta2 = thetas[p2];
+            A_dil = 4.0 * weight * a * dot * theta2;
+            A_dev = 4.0 * weight * b * (extension - delta / 4.0 * dot * theta2);
             A = A_dil + A_dev;
-            glm::vec4 Tp1p2 = 0.5f * A * -dir;
+	    Eigen::Vector3d Tp1p2 = 0.5 * A * -dir;
             tets[p1].force += Tp2p1 * tets[p2].volume;
             tets[p1].force -= Tp1p2 * tets[p2].volume;
             tets[p2].force += Tp1p2 * tets[p1].volume;
             tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
-        //tets[p1].force += glm::vec4(0,-1,0,0) * tets[p1].volume;
+        //tets[p1].force += Eigen::Vector3d(0,-1,0) * tets[p1].volume;
     }
 
     // compute pressure
@@ -370,77 +390,92 @@ void PeridynamicSystem::calculateForces() {
 	int tet3 = roommates[1];
 	int tet4 = roommates[2];
 
-	glm::vec3 p1 = glm::vec3(tets[tet].position);
-	glm::vec3 p2 = glm::vec3(tets[tet2].position);
-	glm::vec3 p3 = glm::vec3(tets[tet3].position);
-	glm::vec3 p4 = glm::vec3(tets[tet4].position);
-	Eigen::Vector3f P1(p1[0],p1[1],p1[2]);
-	Eigen::Vector3f P2(p2[0],p2[1],p2[2]);
-	Eigen::Vector3f P3(p3[0],p3[1],p3[2]);
-	Eigen::Vector3f P4(p4[0],p4[1],p4[2]);
+	Eigen::Vector3d P1 = tets[tet].position;
+	Eigen::Vector3d P2 = tets[tet2].position;
+	Eigen::Vector3d P3 = tets[tet3].position;
+	Eigen::Vector3d P4 = tets[tet4].position;
 
-	Eigen::Vector3f zero(0,0,0);
-	glm::vec3 v1 = glm::vec3(tets[tet].velocity);
-	glm::vec3 v2 = glm::vec3(tets[tet2].velocity);
-	glm::vec3 v3 = glm::vec3(tets[tet3].velocity);
-	glm::vec3 v4 = glm::vec3(tets[tet4].velocity);
-	Eigen::Vector3f V1(v1[0],v1[1],v1[2]);
-	Eigen::Vector3f V2(v2[0],v2[1],v2[2]);
-	Eigen::Vector3f V3(v3[0],v3[1],v3[2]);
-	Eigen::Vector3f V4(v4[0],v4[1],v4[2]);
-	Eigen::MatrixXf V(3,5);
+	Eigen::Vector3d zero(0,0,0);
+	Eigen::Vector3d V1 = tets[tet].velocity;
+	Eigen::Vector3d V2 = tets[tet2].velocity;
+	Eigen::Vector3d V3 = tets[tet3].velocity;
+	Eigen::Vector3d V4 = tets[tet4].velocity;
+	Eigen::MatrixXd V(3,5);
 	V << V1, V2, V3, V4, zero;
 
-	Eigen::MatrixXf Minv(5,5);
+	/*
+	Eigen::MatrixXd Minv(5,5);
 	Minv.setZero();
 	Minv(0,0) = 1 / tets[tet].volume;
 	Minv(1,1) = 1 / tets[tet2].volume;
 	Minv(2,2) = 1 / tets[tet3].volume;
 	Minv(3,3) = 1 / tets[tet4].volume;
+	*/
 
-        glm::vec4 AA = nodes[face[0]];
-        glm::vec4 B = nodes[face[1]];
-        glm::vec4 C = nodes[face[2]];
+	Eigen::Vector3d A = Nodes[face[0]].position;
+	Eigen::Vector3d B = Nodes[face[1]].position;
+	Eigen::Vector3d C = Nodes[face[2]].position;
 
 	// calculate face normal
-        glm::vec3 N = glm::cross(glm::vec3(B-AA),glm::vec3(C-AA));
-        glm::vec3 n = glm::normalize(N);
+	Eigen::Vector3d N = (B-A).cross(C-A);
+	Eigen::Vector3d n = n.normalized();
 
 	// calculate force due to pressure
-        float area = glm::length(N)/2;
-	glm::vec3 force = -1.0f * n * area;
+        double area = N.norm() / 2.0;
+	Eigen::Vector3d force = -1.0 * n * area;
 
-	glm::vec4 F = (AA + B + C)/3.0f;
-	Eigen::Vector3f P(F[0],F[1],F[2]);
+	Eigen::Vector3d F = (A + B + C) / 3.0;
 
-        Eigen::Vector3f Force(force[0],force[1],force[2]);
-	Eigen::VectorXf c = V.transpose() * Force;
-	Eigen::MatrixXf Q = time * Force.dot(Force) * Minv;
+	//Eigen::MatrixXd Q = time * force.dot(force) * Minv;
+	double Q_coeff = time * force.dot(force);
+	vector<T> triplets;
+	triplets.push_back(T(0,0,Q_coeff/tets[tet].volume));
+	triplets.push_back(T(1,1,Q_coeff/tets[tet2].volume));
+	triplets.push_back(T(2,2,Q_coeff/tets[tet3].volume));
+	triplets.push_back(T(3,3,Q_coeff/tets[tet4].volume));
 
-	Eigen::MatrixXf E(4,5);
+	Eigen::MatrixXd E(4,5);
 	E << 1, 1, 1, 1, 0,
-		P1 - P4, P2 - P4, P3 - P4, zero, Force;
-	Eigen::Vector4f d;
-        d << 1, P - P4;
+		P1 - P4, P2 - P4, P3 - P4, zero, force;
+	for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 5; j++) {
+                triplets.push_back(T(5+i,j,E(i,j)));
+                triplets.push_back(T(j,5+i,E(i,j)));
+	    }
+	}
 
-	Eigen::MatrixXf Zero(4,4);
+	/*
+	Eigen::MatrixXd Zero(4,4);
 	Zero.setZero();
-	Eigen::MatrixXf A(9,9);
-        A << Q, E.transpose(), E, Zero;
+	Eigen::MatrixXd a(9,9);
+        a << Q, E.transpose(), E, Zero;
+	*/
+	Eigen::SparseMatrix<double> a(9,9);
+	a.setFromTriplets(triplets.begin(),triplets.end());
 
-	Eigen::VectorXf b(9);
+	Eigen::VectorXd c = V.transpose() * force;
+	Eigen::Vector4d d;
+        d << 1, F - P4;
+	Eigen::VectorXd b(9);
 	b << -c, d;
 
-	Eigen::VectorXf x = A.inverse() * b;
+	//Eigen::VectorXd x = a.inverse() * b;
+	Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+	solver.compute(a);
+	Eigen::VectorXd x = solver.solve(b);
 
-	float a = x(0);
-	float bb = x(1);
-	float cc = x(2);
-	float dd = x(3);
-	tets[tet].force += a * glm::vec4(force, 0);
-	tets[tet2].force += bb * glm::vec4(force, 0);
-	tets[tet3].force += cc * glm::vec4(force, 0);
-	tets[tet4].force += dd * glm::vec4(force, 0);
+	double aa = x(0);
+	double bb = x(1);
+	double cc = x(2);
+	double dd = x(3);
+	tets[tet].force += aa * force;
+	tets[tet2].force += bb * force;
+	tets[tet3].force += cc * force;
+	tets[tet4].force += dd * force;
+	if (isnan(aa) || isnan(bb) || isnan(cc) || isnan(dd)) {
+            cout << aa << " " << bb << " " << cc << " " << dd << endl;
+	    assert(false);
+	}
     }
 }
 
@@ -603,7 +638,7 @@ void PeridynamicSystem::duplicatePointNode(int p) {
 
     // update the node in the duplicate nodes neighbors
     for (uint i = 0; i < n.neighbors.size(); i++) {
-        points[n.neighbors[i]].node = nodes.size();
+        points[n.neighbors[i]].node = Nodes.size();
     }
 
     // update the faces in the duplicate nodes neighbors' tets
@@ -613,7 +648,6 @@ void PeridynamicSystem::duplicatePointNode(int p) {
 
     // add in duplicate node
     Nodes.push_back(n);
-    nodes.push_back(nodes[points[p].node]);
 
     // update the neighbors in the original node
     Nodes[points[p].node].neighbors = reachable;

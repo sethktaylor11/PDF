@@ -289,7 +289,6 @@ int main(int argc, char* argv[])
             { "fragment_color" }
             );
 
-    int i = 0;
     while (!glfwWindowShouldClose(window)) {
         // Setup some basic window stuff.
         glfwGetFramebufferSize(window, &window_width, &window_height);
@@ -313,9 +312,9 @@ int main(int argc, char* argv[])
                     floor_faces.size() * 3,
                     GL_UNSIGNED_INT, 0));
 
-        ps->calculateNewPositions();
+        vector<glm::vec4> new_nodes = ps->calculateNewPositions();
 
-	box_pass.updateVBO(0, ps->nodes.data(), ps->nodes.size());
+	box_pass.updateVBO(0, new_nodes.data(), new_nodes.size());
 	box_pass.updateIndex(ps->faces.data(), ps->faces.size());
 
         box_pass.setup();

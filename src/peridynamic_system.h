@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <glm/glm.hpp>
+#include <Eigen/Dense>
 #include "tictoc.h"
 
 using namespace std;
@@ -15,6 +16,9 @@ class Node {
     public:
         // Constructor
         Node() {};
+
+	// Node
+	Eigen::Vector3d position;
 
 	// Neighbors
 	void removeNeighbor(int p);
@@ -79,8 +83,8 @@ class Tet {
     public:
         // Constructors
         Tet(
-                glm::vec4 pos,
-		float vol,
+                Eigen::Vector3d pos,
+		double vol,
 		bool fixed,
 		int index,
 		vector<int> roommates
@@ -88,10 +92,10 @@ class Tet {
         Tet() {};
 
 	// Tet
-	glm::vec4 position;
-        glm::vec4 velocity;
-	glm::vec4 force;
-        float volume;
+	Eigen::Vector3d position;
+        Eigen::Vector3d velocity;
+	Eigen::Vector3d force;
+        double volume;
 	bool fixed;
 
 	// Triangles
@@ -103,10 +107,10 @@ class Tet {
 	// Neighbors
         vector<int> neighbors; 
         vector<bool> broken;
-        vector<glm::vec4> init_vecs;
-        vector<float> init_lengths;
-        vector<glm::vec4> init_dirs;
-        vector<float> weights;
+        vector<Eigen::Vector3d> init_vecs;
+        vector<double> init_lengths;
+        vector<Eigen::Vector3d> init_dirs;
+        vector<double> weights;
 
 	// Next-door Neighbors
 	bool hasNextDoorNeighbor(int tet);
@@ -137,8 +141,8 @@ class PeridynamicSystem {
                 );
         PeridynamicSystem() {};
 
-        void calculateNewPositions();
-        vector<glm::vec4> nodes;
+	vector<glm::vec4> getNodes();
+        vector<glm::vec4> calculateNewPositions();
         vector<glm::uvec3> faces;
     private:
         void calculateForces();
@@ -177,11 +181,11 @@ class PeridynamicSystem {
         TicTocTimer t = tic();
 
 	// Constants
-        float time = 0.015f;
-        float delta = 0.6f;
-        float a = 10.0f;
-        float b = 10.0f;
-        float damping = 0.001f;
+        double time = 0.015;
+        double delta = 0.6;
+        double a = 10.0;
+        double b = 10.0;
+        double damping = 0.001;
 };
 
 #endif
