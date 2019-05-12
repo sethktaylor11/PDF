@@ -356,6 +356,18 @@ void PeridynamicSystem::calculateForces() {
             tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
         tets[p1].force += Eigen::Vector3d(0.0,-gravity,0.0) * tets[p1].volume;
+	double y = tets[p1].position(1) + (double) height;
+	// collision with floor
+	if (y < 0) {
+            // floor force
+            tets[p1].force+= floorStiffness * Eigen::Vector3d(0.0,-y,0.0);
+
+	    double rel_vel = tets[p1].velocity(1);
+	    if (rel_vel < 0) {
+	        // floor impulse
+		tets[p1].velocity(1) += -(1.0 + CoR) * rel_vel;
+	    }
+	}
     }
 
     // compute pressure
