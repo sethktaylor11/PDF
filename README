@@ -1,0 +1,51 @@
+Seth Taylor
+
+To install: run ./install
+To compile: run ./compile
+To run: run ./run
+
+You can use the major program features by modifying the simulation parameters
+in src/config.h and recompiling. The functions of the parameters are:
+
+mesh - which mesh will appear in the simulation. Provided meshes include box.2,
+tank2.1, cylinder.1 and balloon.1. The cylinder and balloon meshes are much
+finer than the other meshes and require smaller time steps to simulate without
+blowup (about 0.005 for tank2 and 0.002 for cylinder). You can add new meshes to
+the simulation by adding in a corresponding .node, .face, .ele and .neigh file
+to /meshes, but there are some restrictions on the files. The restrictions are:
+all files are zero-indexed
+.node - nodes need 1 attribute which specifies if they are fixed (0 for free, 1
+for fixed) and no boundary marker
+.face - faces need a boundary marker and the indices of the tetrahedra containing
+the faces
+.ele - 4 nodes per tet and no attributes
+.neigh - none
+
+height - the amount the object is offset from the ground
+
+floorStiffness - floor spring constant
+
+CoR - coefficient of restitution
+
+timeStep - time step size
+
+delta - particle interaction radius
+
+a - material parameter proportional to bulk modulus
+
+b - material parameter proportional to shear modulus
+
+damping - damping coefficient
+
+criticalTension - the amount a bond has to strecth before breaking
+
+criticalCompression - the amount a bond has to compress before breaking
+
+gravity - gravity constant
+
+pressureStart - initial gauge pressure
+
+pressureTimeScaling - pressure increase per time step
+
+pressurized - which boundary is pressurized (in the provided examples, 1 for
+exterior faces and 2 for interior faces)
