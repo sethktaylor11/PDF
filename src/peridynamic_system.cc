@@ -51,8 +51,7 @@ Tet::Tet(
         int point_index,
         vector<int> roommates
         ) : position(pos), volume(vol), fixed(fixed), points(4),
-    roommates(roommates), velocity(Eigen::Vector3d(0.0,0.0,0.0)),
-    force(Eigen::Vector3d(0.0,0.0,0.0))
+    roommates(roommates), velocity(Eigen::Vector3d(0.0,0.0,0.0))
 {
     points[0] = point_index;
     points[1] = point_index+1;
@@ -256,20 +255,19 @@ vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
         Nodes[i].position += velocity*timeStep;
     }
     // calculate forces
-    calculateForces();
+    vector<Eigen::Vector3d> forces = calculateForces();
     // new velocities
     for (uint i = 0; i < tets.size(); i++) {
         if (tets[i].fixed) continue;
         // damping
         tets[i].velocity *= 1-damping;
-        tets[i].velocity += tets[i].force*timeStep/tets[i].volume;
+        tets[i].velocity += forces[i]*timeStep/tets[i].volume;
     }
     return getNodes();
 }
 
-void PeridynamicSystem::calculateForces() {
-    // reset forces
-    for (uint i = 0; i < tets.size(); i++) tets[i].force = Eigen::Vector3d(0.0,0.0,0.0);
+vector<Eigen::Vector3d> PeridynamicSystem::calculateForces() {
+    vector<Eigen::Vector3d> forces(tets.size(),Eigen::Vector3d(0.0,0.0,0.0));
 
     // compute relevant values from deformed positions
     vector<vector<Eigen::Vector3d>> vecs(tets.size());
@@ -350,17 +348,17 @@ void PeridynamicSystem::calculateForces() {
             A_dev = 4.0 * weight * b * (extension - delta / 4.0 * dot * theta2);
             A = A_dil + A_dev;
 	    Eigen::Vector3d Tp1p2 = 0.5 * A * -dir;
-            tets[p1].force += Tp2p1 * tets[p2].volume;
-            tets[p1].force -= Tp1p2 * tets[p2].volume;
-            tets[p2].force += Tp1p2 * tets[p1].volume;
-            tets[p2].force -= Tp2p1 * tets[p1].volume;
+            forces[p1] += Tp2p1 * tets[p2].volume;
+            forces[p1] -= Tp1p2 * tets[p2].volume;
+            forces[p2] += Tp1p2 * tets[p1].volume;
+            forces[p2] -= Tp2p1 * tets[p1].volume;
         }
-        tets[p1].force += Eigen::Vector3d(0.0,-gravity,0.0) * tets[p1].volume;
+        forces[p1] += Eigen::Vector3d(0.0,-gravity,0.0) * tets[p1].volume;
 	double y = tets[p1].position(1) + (double) height;
 	// collision with floor
 	if (y < 0) {
             // floor force
-            tets[p1].force+= floorStiffness * Eigen::Vector3d(0.0,-y,0.0);
+            forces[p1] += floorStiffness * Eigen::Vector3d(0.0,-y,0.0);
 
 	    double rel_vel = tets[p1].velocity(1);
 	    if (rel_vel < 0) {
@@ -426,11 +424,13 @@ void PeridynamicSystem::calculateForces() {
 	double bb = x(1);
 	double cc = x(2);
 	double dd = x(3);
-	tets[tet].force += aa * force;
-	tets[tet2].force += bb * force;
-	tets[tet3].force += cc * force;
-	tets[tet4].force += dd * force;
+	forces[tet] += aa * force;
+	forces[tet2] += bb * force;
+	forces[tet3] += cc * force;
+	forces[tet4] += dd * force;
     }
+
+    return forces;
 }
 
 // Tets

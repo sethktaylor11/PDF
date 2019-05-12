@@ -93,7 +93,6 @@ class Tet {
 	// Tet
 	Eigen::Vector3d position;
         Eigen::Vector3d velocity;
-	Eigen::Vector3d force;
         double volume;
 	bool fixed;
 
@@ -143,7 +142,7 @@ class PeridynamicSystem {
         vector<glm::vec4> calculateNewPositions();
         vector<glm::uvec3> faces;
     private:
-        void calculateForces();
+        vector<Eigen::Vector3d> calculateForces();
 
         // Tets
 
