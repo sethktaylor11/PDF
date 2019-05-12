@@ -21,7 +21,7 @@ const float kFloorY = -0.75617 - kFloorEps;
 
 // Simulation parameters
 const std::string mesh = "tank2.1";
-const float height = 2.25f;
+const float height = 5.0f;
 const double floorStiffness = 1.0;
 const double CoR = 0.5;
 const double timeStep = 0.005;

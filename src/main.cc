@@ -90,10 +90,11 @@ void readNodes(vector<glm::vec4>& nodes, vector<bool>& fixedNodes) {
 	fixedNodes.resize(nP);
 	int p;
 	float x, y, z;
+	int f;
 	for (int i = 0; i < nP; i++) {
-		nodesFile >> p >> x >> y >> z;
+		nodesFile >> p >> x >> y >> z >> f;
 		nodes[p] = glm::vec4(x,y,z,1);
-		if (x == -4.0f) fixedNodes[p] = true;
+		fixedNodes[p] = f;
 	}
 }
 
