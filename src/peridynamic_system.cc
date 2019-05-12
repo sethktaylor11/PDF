@@ -372,8 +372,8 @@ vector<Eigen::Vector3d> PeridynamicSystem::calculateForces() {
 
 	// compute pressure
 	for (uint i = 0; i < Faces.size(); i++) {
-		// determine if the triangle is an interior face
-		if (Faces[i].boundary != interior) continue;
+		// determine if the face is pressurized
+		if (Faces[i].boundary != pressurized) continue;
 
 		glm::uvec3 face = faces[i];
 		int tet = triangles[Faces[i].triangle].tet;
@@ -546,9 +546,7 @@ void PeridynamicSystem::updateTriangleFace(int t) {
 
 void PeridynamicSystem::createTriangleFace(int t) {
 	// create a Face
-	Face F = Face();
-	F.boundary = 0;
-	F.triangle = t;
+	Face F = Face(0,t);
 	Faces.push_back(F);
 
 	// create a face from triangle t

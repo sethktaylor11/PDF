@@ -34,6 +34,6 @@ const double criticalCompression = 0.1;
 const double gravity = 1.0;
 const double pressureStart = 0.0;
 const double pressureTimeScaling = 1.0;
-const int interior = 2;
+const int pressurized = 2;
 
 #endif
