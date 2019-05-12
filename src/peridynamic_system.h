@@ -141,7 +141,6 @@ class PeridynamicSystem {
                 );
         PeridynamicSystem() {};
 
-	vector<glm::vec4> getNodes();
         vector<glm::vec4> calculateNewPositions();
         vector<glm::uvec3> faces;
     private:
@@ -175,6 +174,7 @@ class PeridynamicSystem {
         // Rendered
 	
 	// Nodes
+	vector<glm::vec4> getNodes();
         bool hasNeighbor(int node, int tet);
         vector<Node> Nodes;
 

@@ -128,16 +128,12 @@ PeridynamicSystem::PeridynamicSystem(
 	points[point_index+1].tet = i;
 	points[point_index+2].tet = i;
 	points[point_index+3].tet = i;
-        glm::dvec4 a_vec = nodes[A];
-        glm::dvec4 b_vec = nodes[B];
-        glm::dvec4 c_vec = nodes[C];
-        glm::dvec4 d_vec = nodes[D];
-	Eigen::Vector3d a(a_vec[0],a_vec[1],a_vec[2]);
-	Eigen::Vector3d b(b_vec[0],b_vec[1],b_vec[2]);
-	Eigen::Vector3d c(c_vec[0],c_vec[1],c_vec[2]);
-	Eigen::Vector3d d(d_vec[0],d_vec[1],d_vec[2]);
+	Eigen::Vector3d a = Nodes[A].position;
+	Eigen::Vector3d b = Nodes[B].position;
+	Eigen::Vector3d c = Nodes[C].position;
+	Eigen::Vector3d d = Nodes[D].position;
 	Eigen::Vector3d position = (a + b + c + d) / 4.0;
-        double volume = (b-a).dot((c-a).cross(d-a))/6;
+        double volume = (b-a).dot((c-a).cross(d-a))/6.0;
 	bool fixed = false;
         if (fixedNodes[A] || fixedNodes[B] || fixedNodes[C] || fixedNodes[D]) fixed = true;
 	tets[i] = Tet(position, volume, fixed, point_index, roommates[i]);
@@ -241,15 +237,6 @@ PeridynamicSystem::PeridynamicSystem(
     }
 }
 
-vector<glm::vec4> PeridynamicSystem::getNodes() {
-    vector<glm::vec4> nodes(Nodes.size());
-    for (uint i = 0; i < Nodes.size(); i++) {
-        Eigen::Vector3d pos = Nodes[i].position;
-	nodes[i] = glm::vec4(float(pos[0]),float(pos[1]),float(pos[2]),1);
-    }
-    return nodes;
-}
-
 vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
     // new particle positions
     for (uint i = 0; i < tets.size(); i++) {
@@ -258,7 +245,7 @@ vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
     }
     // new node positions
     for (uint i = 0; i < Nodes.size(); i++) {
-        Eigen::Vector3d velocity;
+        Eigen::Vector3d velocity(0.0,0.0,0.0);
 	double weight = 0;
         for (uint j = 0; j < Nodes[i].neighbors.size(); j++) {
             int tet = points[Nodes[i].neighbors[j]].tet;
@@ -418,7 +405,7 @@ void PeridynamicSystem::calculateForces() {
 
 	// calculate face normal
 	Eigen::Vector3d N = (B-A).cross(C-A);
-	Eigen::Vector3d n = n.normalized();
+	Eigen::Vector3d n = N.normalized();
 
 	// calculate force due to pressure
         double area = N.norm() / 2.0;
@@ -460,7 +447,7 @@ void PeridynamicSystem::calculateForces() {
 	b << -c, d;
 
 	//Eigen::VectorXd x = a.inverse() * b;
-	Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
+	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
 	solver.compute(a);
 	Eigen::VectorXd x = solver.solve(b);
 
@@ -472,10 +459,6 @@ void PeridynamicSystem::calculateForces() {
 	tets[tet2].force += bb * force;
 	tets[tet3].force += cc * force;
 	tets[tet4].force += dd * force;
-	if (isnan(aa) || isnan(bb) || isnan(cc) || isnan(dd)) {
-            cout << aa << " " << bb << " " << cc << " " << dd << endl;
-	    assert(false);
-	}
     }
 }
 
@@ -656,6 +639,15 @@ void PeridynamicSystem::duplicatePointNode(int p) {
 // Rendered
 
 // Nodes
+
+vector<glm::vec4> PeridynamicSystem::getNodes() {
+    vector<glm::vec4> nodes(Nodes.size());
+    for (uint i = 0; i < Nodes.size(); i++) {
+        Eigen::Vector3d pos = Nodes[i].position;
+	nodes[i] = glm::vec4(float(pos[0]),float(pos[1]),float(pos[2]),1);
+    }
+    return nodes;
+}
 
 bool PeridynamicSystem::hasNeighbor(int node, int tet) {
     for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
