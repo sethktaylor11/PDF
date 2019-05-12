@@ -4,10 +4,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <math.h>
-#include <Eigen/Sparse>
 
 using namespace std;
-typedef Eigen::Triplet<double> T;
 
 // Rendered
 
@@ -389,15 +387,6 @@ void PeridynamicSystem::calculateForces() {
 	Eigen::MatrixXd V(3,4);
 	V << V1, V2, V3, V4;
 
-	/*
-	Eigen::MatrixXd Minv(5,5);
-	Minv.setZero();
-	Minv(0,0) = 1 / tets[tet].volume;
-	Minv(1,1) = 1 / tets[tet2].volume;
-	Minv(2,2) = 1 / tets[tet3].volume;
-	Minv(3,3) = 1 / tets[tet4].volume;
-	*/
-
 	Eigen::Vector3d A = Nodes[face[0]].position;
 	Eigen::Vector3d B = Nodes[face[1]].position;
 	Eigen::Vector3d C = Nodes[face[2]].position;
@@ -412,43 +401,15 @@ void PeridynamicSystem::calculateForces() {
 
 	Eigen::Vector3d F = (A + B + C) / 3.0;
 
-	//Eigen::MatrixXd Q = time * force.dot(force) * Minv;
-	double Q_coeff = time * force.dot(force);
-	vector<T> triplets;
-	triplets.push_back(T(0,0,Q_coeff/tets[tet].volume));
-	triplets.push_back(T(1,1,Q_coeff/tets[tet2].volume));
-	triplets.push_back(T(2,2,Q_coeff/tets[tet3].volume));
-	triplets.push_back(T(3,3,Q_coeff/tets[tet4].volume));
-
 	Eigen::Matrix4d E;
 	E << 1, 1, 1, 1,
 		(P1-F).cross(force), (P2-F).cross(force),
 		(P3-F).cross(force), (P4-F).cross(force);
-	for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                triplets.push_back(T(4+i,j,E(i,j)));
-                triplets.push_back(T(j,4+i,E(i,j)));
-	    }
-	}
 
-	/*
-	Eigen::MatrixXd Zero(4,4);
-	Zero.setZero();
-	Eigen::MatrixXd a(9,9);
-        a << Q, E.transpose(), E, Zero;
-	*/
-	Eigen::SparseMatrix<double> a(8,8);
-	a.setFromTriplets(triplets.begin(),triplets.end());
-
-	Eigen::Vector4d c = V.transpose() * force;
 	Eigen::Vector4d d(1.0, 0.0, 0.0, 0.0);
-	Eigen::VectorXd b(8);
-	b << -c, d;
 
-	//Eigen::VectorXd x = a.inverse() * b;
-	Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
-	solver.compute(a);
-	Eigen::VectorXd x = solver.solve(b);
+	Eigen::ColPivHouseholderQR<Eigen::Matrix4d> solver(E);
+	Eigen::Vector4d x = solver.solve(d);
 
 	double aa = x(0);
 	double bb = x(1);
