@@ -1,6 +1,7 @@
 #ifndef _PERIDYNAMIC_SYSTEM_H_
 #define _PERIDYNAMIC_SYSTEM_H_
 
+#include "config.h"
 #include <vector>
 #include <glm/glm.hpp>
 #include <Eigen/Dense>
@@ -32,8 +33,8 @@ class Node {
 class Face {
     public:
         // Constructor
-        Face() {};
 	Face(int b, int t) : boundary(b), triangle(t) {};
+        Face() {};
 
 	// Face
 	int boundary;
@@ -70,7 +71,6 @@ class Triangle {
     public:
         // Constructors
         Triangle(
-                int boundary,
                 int face,
 		vector<int> points,
 		int neighbor,
@@ -79,7 +79,6 @@ class Triangle {
         Triangle() {};
 
 	// Triangle
-        int boundary;
 	int face;
 	
 	// Points
@@ -194,6 +193,9 @@ class PeridynamicSystem {
 	// Nodes
 	vector<glm::vec4> getNodes();
         vector<Node> Nodes;
+
+	// Pressure
+	double pressure = pressureStart;
 };
 
 #endif

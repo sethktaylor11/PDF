@@ -1,5 +1,4 @@
 #include "peridynamic_system.h"
-#include "config.h"
 #include <iostream>
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -32,13 +31,11 @@ void Node::removeNeighbors(vector<int> points) {
 // Triangle
 
 Triangle::Triangle(
-        int boundary,
         int face,
 	vector<int> points,
 	int neighbor,
 	int tet
-	) : boundary(boundary), face(face),
-    points(points), neighbor(neighbor), tet(tet)
+	) : face(face), points(points), neighbor(neighbor), tet(tet)
 {
 }
 
@@ -179,7 +176,7 @@ PeridynamicSystem::PeridynamicSystem(
         }
 
         tets[tet1].triangles.push_back(tri1);
-        triangles.push_back(Triangle(b, face, points1, tri2, tet1));
+        triangles.push_back(Triangle(face, points1, tri2, tet1));
 
 	if (tet2 == -1) continue;
 
@@ -189,7 +186,7 @@ PeridynamicSystem::PeridynamicSystem(
 	points2[2] = temp;
 
         tets[tet2].triangles.push_back(tri2);
-        triangles.push_back(Triangle(0, -1, points2, tri1, tet2));
+        triangles.push_back(Triangle(-1, points2, tri1, tet2));
     }
 
     for (uint i = 0; i < tets.size()-1; i++) {
@@ -259,6 +256,8 @@ vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
     }
     // calculate forces
     vector<Eigen::Vector3d> forces = calculateForces();
+    // new pressure
+    pressure += pressureTimeScaling * timeStep;
     // new velocities
     for (uint i = 0; i < tets.size(); i++) {
         if (tets[i].fixed) continue;
@@ -374,7 +373,7 @@ vector<Eigen::Vector3d> PeridynamicSystem::calculateForces() {
     // compute pressure
     for (uint i = 0; i < Faces.size(); i++) {
         // determine if the triangle is an interior face
-        if (Faces[i].boundary != 2) continue;
+        if (Faces[i].boundary != interior) continue;
 
         glm::uvec3 face = faces[i];
 	int tet = triangles[Faces[i].triangle].tet;
