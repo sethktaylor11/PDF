@@ -382,13 +382,12 @@ void PeridynamicSystem::calculateForces() {
 	Eigen::Vector3d P3 = tets[tet3].position;
 	Eigen::Vector3d P4 = tets[tet4].position;
 
-	Eigen::Vector3d zero(0,0,0);
 	Eigen::Vector3d V1 = tets[tet].velocity;
 	Eigen::Vector3d V2 = tets[tet2].velocity;
 	Eigen::Vector3d V3 = tets[tet3].velocity;
 	Eigen::Vector3d V4 = tets[tet4].velocity;
-	Eigen::MatrixXd V(3,5);
-	V << V1, V2, V3, V4, zero;
+	Eigen::MatrixXd V(3,4);
+	V << V1, V2, V3, V4;
 
 	/*
 	Eigen::MatrixXd Minv(5,5);
@@ -421,13 +420,14 @@ void PeridynamicSystem::calculateForces() {
 	triplets.push_back(T(2,2,Q_coeff/tets[tet3].volume));
 	triplets.push_back(T(3,3,Q_coeff/tets[tet4].volume));
 
-	Eigen::MatrixXd E(4,5);
-	E << 1, 1, 1, 1, 0,
-		P1 - P4, P2 - P4, P3 - P4, zero, force;
+	Eigen::Matrix4d E;
+	E << 1, 1, 1, 1,
+		(P1-F).cross(force), (P2-F).cross(force),
+		(P3-F).cross(force), (P4-F).cross(force);
 	for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 5; j++) {
-                triplets.push_back(T(5+i,j,E(i,j)));
-                triplets.push_back(T(j,5+i,E(i,j)));
+            for (int j = 0; j < 4; j++) {
+                triplets.push_back(T(4+i,j,E(i,j)));
+                triplets.push_back(T(j,4+i,E(i,j)));
 	    }
 	}
 
@@ -437,17 +437,16 @@ void PeridynamicSystem::calculateForces() {
 	Eigen::MatrixXd a(9,9);
         a << Q, E.transpose(), E, Zero;
 	*/
-	Eigen::SparseMatrix<double> a(9,9);
+	Eigen::SparseMatrix<double> a(8,8);
 	a.setFromTriplets(triplets.begin(),triplets.end());
 
-	Eigen::VectorXd c = V.transpose() * force;
-	Eigen::Vector4d d;
-        d << 1, F - P4;
-	Eigen::VectorXd b(9);
+	Eigen::Vector4d c = V.transpose() * force;
+	Eigen::Vector4d d(1.0, 0.0, 0.0, 0.0);
+	Eigen::VectorXd b(8);
 	b << -c, d;
 
 	//Eigen::VectorXd x = a.inverse() * b;
-	Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+	Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
 	solver.compute(a);
 	Eigen::VectorXd x = solver.solve(b);
 
