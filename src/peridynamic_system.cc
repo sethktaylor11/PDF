@@ -171,6 +171,9 @@ PeridynamicSystem::PeridynamicSystem(
         int face = -1;
 	int b = boundary[i];
 	if (b != 0) {
+            Face F = Face(b, tri1);
+	    Faces.push_back(F);
+
             face = faces.size();
 	    faces.push_back(glm::uvec3(tris[i][0],tris[i][2],tris[i][1]));
         }
@@ -369,12 +372,12 @@ vector<Eigen::Vector3d> PeridynamicSystem::calculateForces() {
     }
 
     // compute pressure
-    for (uint i = 0; i < triangles.size(); i++) {
+    for (uint i = 0; i < Faces.size(); i++) {
         // determine if the triangle is an interior face
-        if (triangles[i].boundary != 2) continue;
+        if (Faces[i].boundary != 2) continue;
 
-        glm::uvec3 face = faces[triangles[i].face];
-	int tet = triangles[i].tet;
+        glm::uvec3 face = faces[i];
+	int tet = triangles[Faces[i].triangle].tet;
 	vector<int> roommates = tets[tet].getCurrentRoommates();
 
 	// determine if the tet has 3 roommates
@@ -543,6 +546,12 @@ void PeridynamicSystem::updateTriangleFace(int t) {
 }
 
 void PeridynamicSystem::createTriangleFace(int t) {
+    // create a Face
+    Face F = Face();
+    F.boundary = 0;
+    F.triangle = t;
+    Faces.push_back(F);
+
     // create a face from triangle t
     triangles[t].face = faces.size();
     faces.push_back(glm::uvec3(points[triangles[t].points[0]].node,

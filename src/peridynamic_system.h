@@ -27,6 +27,23 @@ class Node {
     private:
 };
 
+// Face
+
+class Face {
+    public:
+        // Constructor
+        Face() {};
+	Face(int b, int t) : boundary(b), triangle(t) {};
+
+	// Face
+	int boundary;
+
+	// Triangle
+	int triangle;
+
+    private:
+};
+
 // Tets
 
 // Point
@@ -171,6 +188,9 @@ class PeridynamicSystem {
 
         // Rendered
 	
+	// Faces
+	vector<Face> Faces;
+
 	// Nodes
 	vector<glm::vec4> getNodes();
         vector<Node> Nodes;
