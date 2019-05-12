@@ -4,7 +4,6 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <Eigen/Dense>
-#include "tictoc.h"
 
 using namespace std;
 
@@ -175,17 +174,7 @@ class PeridynamicSystem {
 	
 	// Nodes
 	vector<glm::vec4> getNodes();
-        bool hasNeighbor(int node, int tet);
         vector<Node> Nodes;
-
-        TicTocTimer t = tic();
-
-	// Constants
-        double time = 0.015;
-        double delta = 0.6;
-        double a = 10.0;
-        double b = 10.0;
-        double damping = 0.001;
 };
 
 #endif

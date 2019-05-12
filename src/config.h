@@ -1,13 +1,12 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <string>
+
 /*
  * Global variables go here.
  */
 
-/*
- * Extra credit: what would happen if you set kNear to 1e-5? How to solve it?
- */
 const float kNear = 0.1f;
 const float kFar = 1000.0f;
 const float kFov = 45.0f;
@@ -19,5 +18,14 @@ const float kFloorXMax = 100.0f;
 const float kFloorZMin = -100.0f;
 const float kFloorZMax = 100.0f;
 const float kFloorY = -0.75617 - kFloorEps;
+
+// Simulation parameters
+const std::string mesh = "tank2.1";
+const float height = 5.0f;
+const double timeStep = 0.015;
+const double delta = 0.6;
+const double a = 10.0;
+const double b = 10.0;
+const double damping = 0.001;
 
 #endif

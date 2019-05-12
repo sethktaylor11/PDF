@@ -1,4 +1,5 @@
 #include "peridynamic_system.h"
+#include "config.h"
 #include <iostream>
 #include <algorithm>
 #define GLM_ENABLE_EXPERIMENTAL
@@ -239,7 +240,7 @@ vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
     // new particle positions
     for (uint i = 0; i < tets.size(); i++) {
         if (tets[i].fixed) continue;
-        tets[i].position += tets[i].velocity*time;
+        tets[i].position += tets[i].velocity*timeStep;
     }
     // new node positions
     for (uint i = 0; i < Nodes.size(); i++) {
@@ -252,7 +253,7 @@ vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
 	    weight += w;
         }
         velocity /= weight;
-        Nodes[i].position += velocity*time;
+        Nodes[i].position += velocity*timeStep;
     }
     // calculate forces
     calculateForces();
@@ -261,7 +262,7 @@ vector<glm::vec4> PeridynamicSystem::calculateNewPositions() {
         if (tets[i].fixed) continue;
         // damping
         tets[i].velocity *= 1-damping;
-        tets[i].velocity += tets[i].force*time/tets[i].volume;
+        tets[i].velocity += tets[i].force*timeStep/tets[i].volume;
     }
     return getNodes();
 }
@@ -607,11 +608,4 @@ vector<glm::vec4> PeridynamicSystem::getNodes() {
 	nodes[i] = glm::vec4(float(pos[0]),float(pos[1]),float(pos[2]),1);
     }
     return nodes;
-}
-
-bool PeridynamicSystem::hasNeighbor(int node, int tet) {
-    for (uint i = 0; i < Nodes[node].neighbors.size(); i++) {
-        if (points[Nodes[node].neighbors[i]].tet == tet) return true;
-    }
-    return false;
 }
