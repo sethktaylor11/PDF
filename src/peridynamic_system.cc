@@ -292,8 +292,7 @@ void PeridynamicSystem::calculateForces() {
             double init_length = tets[i].init_lengths[j];
             double extension = length - init_length;
             double stretch = extension / init_length;
-	    /*
-            if (stretch >= .1) {
+            if (stretch >= criticalTension || -stretch >= criticalCompression) {
 		if (tets[i].hasRoommate(tets[i].neighbors[j]))
                     splitRoommates(i,tets[i].neighbors[j]);
 	        if (tets[i].hasNextDoorNeighbor(tets[i].neighbors[j]))
@@ -301,7 +300,6 @@ void PeridynamicSystem::calculateForces() {
                 tets[i].broken[j] = true;
                 continue;
             }
-	    */
             vecs[i][j] = vec;
             lengths[i][j] = length;
             dirs[i][j] = dir;
@@ -357,7 +355,7 @@ void PeridynamicSystem::calculateForces() {
             tets[p2].force += Tp1p2 * tets[p1].volume;
             tets[p2].force -= Tp2p1 * tets[p1].volume;
         }
-        //tets[p1].force += Eigen::Vector3d(0,-1,0) * tets[p1].volume;
+        tets[p1].force += Eigen::Vector3d(0.0,-gravity,0.0) * tets[p1].volume;
     }
 
     // compute pressure
@@ -398,7 +396,7 @@ void PeridynamicSystem::calculateForces() {
 
 	// calculate force due to pressure
         double area = N.norm() / 2.0;
-	Eigen::Vector3d force = -1.0 * n * area;
+	Eigen::Vector3d force = -pressure * n * area;
 
 	Eigen::Vector3d F = (A + B + C) / 3.0;
 

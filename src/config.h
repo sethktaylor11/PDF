@@ -27,5 +27,9 @@ const double delta = 0.6;
 const double a = 10.0;
 const double b = 10.0;
 const double damping = 0.001;
+const double criticalTension = 0.1;
+const double criticalCompression = 0.1;
+const double gravity = 0.0;
+const double pressure = 0.15;
 
 #endif
