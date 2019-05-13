@@ -4,6 +4,12 @@ To install: run ./install
 To compile: run ./compile
 To run: run ./run
 
+Camera controls:
+W/S - move forward/back
+A/D - move left/right
+Up Arrow/Down Arrow - move up/down
+Hold right click and drag - rotate camera
+
 You can use the major program features by modifying the simulation parameters
 in src/config.h and recompiling. The functions of the parameters are:
 
